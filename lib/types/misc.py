@@ -1,7 +1,10 @@
 import os
 import json
+from datetime import datetime as dt
 from lib.types.errors import *
 import cv2
+from lib.types.cropbox import *
+from PIL import Image
 
 class RefData:
 	def __init__(self, conf:float, size:int, x:int, y:int) -> None:
@@ -15,7 +18,7 @@ class RefData:
 def drawBoundingBox(image:cv2.Mat,x:int,y:int,w:int,h:int,text:str|None=None, inset:bool=False) -> cv2.Mat:
 	cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2) # type: ignore
 	if text != None:
-		cv2.putText(image, text, (x, (y - 10) if not inset else (y + 30)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2) # type: ignore
+		cv2.putText(image, text, (x if not inset else x+5, (y - 10) if not inset else (y + 20)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2) # type: ignore
 	return image
 def bgraToRgba(img:cv2.Mat) -> cv2.Mat:
 	return cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
@@ -48,6 +51,23 @@ def filterNamesByRarityAndProfession(r:int, p:str) -> list[str]:
 	return [str(n[1].get("name")) for n in list(filter(lambda o: o[1].get("rarity") == r and str(o[1].get("class")).lower() == p.lower(), ops.items()))]
 	
 
+
+class Delta():
+	def __init__(self, time:dt, description:str|None=None) -> None:
+		self.TIME:dt = time
+		self.description:str|None = description
+
+class TimeTracker():
+	def __init__(self, startTime:dt) -> None:
+		self.START_TIME:dt = startTime
+		self.deltas:list[Delta] = []
+
+	def add(self, d:Delta) -> None:
+		self.deltas.append(d)
+
+	def diff(self) -> list[tuple[str|None, float]]:
+		return [(self.deltas[d].description, (self.deltas[d].TIME - self.START_TIME if d == 0 else self.deltas[d].TIME - self.deltas[d-1].TIME).total_seconds()) for d in range(len(self.deltas))]
+
 # for i in range(len(data['text'])):
 #     x:int = int(data['left'][i])
 #     y:int = int(data['top'][i])
@@ -55,3 +75,13 @@ def filterNamesByRarityAndProfession(r:int, p:str) -> list[str]:
 #     h:int = int(data['height'][i])
 #     drawBoundingBox(cropped,x,y,w,h,str(data["text"][i]))
 # Image.fromarray(bgraToRgba(cropped),"RGBA").show() # type: ignore
+
+def findLetters(cropped:cv2.Mat, minArea:int=0, maxArea:int=10000) -> list[CropBox]:
+	gray:cv2.Mat = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+	edges:cv2.Mat = cv2.Canny(gray, 10, 0)#type:ignore
+	contours:cv2.Mat = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # type: ignore
+	cropBoxes:list[CropBox] = []
+	for cnt in contours:
+		if not minArea < cv2.contourArea(cnt) < maxArea: continue
+		cropBoxes.append(CropBox(*cv2.boundingRect(cnt), tolerance=5)) # type: ignore
+	return cropBoxes

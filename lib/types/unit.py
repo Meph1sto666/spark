@@ -2,26 +2,30 @@ from lib.types.errors import *
 from lib.types.misc import * 
 from lib.types.skill import * 
 from lib.types.cropbox import * 
+from lib.types.module import * 
 import cv2
 import os
 import numpy as np
 import re
 import difflib
+from datetime import datetime as dt
 # from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
 tsr = pytesseract.pytesseract.tesseract_cmd = "./dep/Tesseract-OCR/tesseract.exe"
 tess_config = r"--psm 11"
 tessOnlyNumbers = r"--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789"
-names:list[str] = open("./ref/operatornames.txt").read().split("\n")
+names:list[str] = open("./ref/operatornames.txt","r").read().split("\n")
 
 class Operator:
 	def __init__(self, imagePath:str, profRefData:RefData, promRefData:RefData) -> None:
 		self.IMAGE_PATH:str = imagePath
 		self.ORIGINAL:cv2.Mat = cv2.imread(self.IMAGE_PATH, cv2.IMREAD_UNCHANGED)
+		self.deltas:list[dict[str,dt]] = []
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
 		# crops / positions
+		tTracker:TimeTracker = TimeTracker(dt.now())
 		self.prfCropBox:CropBox = CropBox(self.professionAnchor.x, self.professionAnchor.y, self.professionAnchor.size, self.professionAnchor.size, 5)
 		self.nameCropBox:CropBox = self.getNamePosition()
 		self.rarityCropBox:CropBox = self.getRarityPosition()
@@ -29,21 +33,36 @@ class Operator:
 		self.promotionCropBox:CropBox = CropBox(self.promotionAnchor.x, self.promotionAnchor.y, self.promotionAnchor.size, self.promotionAnchor.size, 5)
 		self.operatorCropBox:CropBox = self.getOperatorPosition()
 		self.potentialCropBox:CropBox = self.getPotentialPosition()
-		self.skills:Skills = Skills(self.ORIGINAL.copy(), self.getSkillsPosition())
+		self.moduleTypeCropBox:CropBox = self.getModuleTypePosition()
+		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
+		tTracker.add(Delta(dt.now(), "cropBoxes"))
+		# Image.fromarray(self.moduleStageCropBox.crop(self.ORIGINAL)).show()
 		# help data for name recognition
 		self.profession:str = self.conjectOperatorProfession()
+		tTracker.add(Delta(dt.now(), "profession"))
 		self.rarityStars:list[tuple[CropBox,int,int,float]] = []
 		self.rarity:int = self.conjectOperatorRarity()
+		tTracker.add(Delta(dt.now(), "rarity"))
 		# actual data...
 		self.name:str = self.conjectOperatorName(filterNamesByRarityAndProfession(self.rarity, str(self.profession)))
+		tTracker.add(Delta(dt.now(), "name"))
 		self.id:str = getIdByName(str(self.name))
+		tTracker.add(Delta(dt.now(), "id"))
 		self.level:int = self.conjectOperatorLevel()
+		tTracker.add(Delta(dt.now(), "level"))
 		self.promotion:int = self.conjectOperatorPromotionLevel()
+		tTracker.add(Delta(dt.now(), "prom"))
 		self.potential:int = self.conjectOperatorPotential()
+		tTracker.add(Delta(dt.now(), "pot"))
+		self.skills:Skills = Skills(self.ORIGINAL, self.getSkillsPosition())
+		tTracker.add(Delta(dt.now(), "skills"))
+		self.module:Module = Module(self.ORIGINAL, self.id, self.moduleStageCropBox, self.moduleTypeCropBox)
+		tTracker.add(Delta(dt.now(), "module"))
 		# self.avatars = 
+		# print(tTracker.diff())
 
 	def conjectOperatorProfession(self) -> str:
-		cropped:cv2.Mat = self.prfCropBox.crop(self.ORIGINAL.copy())
+		cropped:cv2.Mat = self.prfCropBox.crop(self.ORIGINAL)
 		for c in os.listdir("./ref/classes/alpha/"):
 			template:cv2.Mat = toGrayscale(cv2.resize(cv2.imread(f"./ref/classes/mask/{c}"), (self.prfCropBox.w,self.prfCropBox.h)))
 			loc:tuple=np.where(cv2.matchTemplate(toGrayscale(cropped), template, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
@@ -51,12 +70,12 @@ class Operator:
 				return re.findall(r"(?<=class_)\w+", c)[0]
 		raise OperatorProfessionConjectionFailed()
 	def conjectOperatorName(self, options:list[str]) -> str:
-		if 0 < len(options) < 2: return options[0] 
+		if 0 < len(options) < 2: return options[0]
 		name:tuple[str,float]|None = conjectTextInRegion(self.ORIGINAL, self.nameCropBox, options, [150, 200, 250, 300, 100, 350, 400, 50])
 		if name != None: return name[0]
 		raise OperatorNameConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorRarity(self) -> int:
-		cropped:cv2.Mat = self.rarityCropBox.crop(self.ORIGINAL.copy())
+		cropped:cv2.Mat = self.rarityCropBox.crop(self.ORIGINAL)
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
 		croppedMaskedGray:cv2.Mat = toGrayscale(croppedMasked)
@@ -73,25 +92,27 @@ class Operator:
 			raise OperatorRarityConjectionFailed(self.IMAGE_PATH)
 		return len(stars)
 	def conjectOperatorLevel(self) -> int:
-		cropped:cv2.Mat = self.levelCropBox.crop(self.ORIGINAL.copy())
-		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 250, 255, cv2.THRESH_BINARY)[1]) # type: ignore / # tweak thresh if fails
+		cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.ORIGINAL))
+		mask:cv2.Mat = cv2.threshold(cropped, 250, 255, cv2.THRESH_BINARY)[1] # type: ignore / # tweak thresh if fails
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
-		read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config="--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789", output_type=pytesseract.Output.DICT) # type: ignore
-		# Image.fromarray(bgraToRgba(croppedMasked)).show()
-		filtered = list(filter(lambda n: len(n) > 0, read["text"]))
+		read:dict[str,list[str]] = pytesseract.image_to_data(croppedMasked, config="--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789", output_type=pytesseract.Output.DICT) # type: ignore
+		filtered:list[str] = []
+		for r in read["text"]:
+			if len(r) > 0: filtered.append(r)
 		if len(filtered) > 0: return int(filtered[0])
-		raise OperatorLevelConjectionFailed()
+		raise OperatorLevelConjectionFailed()	
+
 	def conjectOperatorPromotionLevel(self) -> int: # maybe enough confidence without matching multiple sizes 
 		data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 		streak = 0;
-		target:cv2.Mat = toGrayscale(cv2.threshold(self.ORIGINAL.copy(), 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
+		target:cv2.Mat = toGrayscale(cv2.threshold(self.ORIGINAL, 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
 		self.promotionCropBox.tolerance = 20
 		targetCropped:cv2.Mat = self.promotionCropBox.crop(target)
-		for size in range(self.promotionAnchor.size-5,self.promotionAnchor.size+5):
-			if len(data) > 0 and streak < 0: break
-			for e in os.listdir("./ref/elite/"):
-				refImg:cv2.Mat = cv2.imread(f"./ref/elite/{e}", cv2.IMREAD_UNCHANGED)
-				refGray:cv2.Mat = toGrayscale(cv2.bitwise_and(refImg, refImg, mask=refImg[:,:,3]))
+		for e in os.listdir("./ref/elite/"):
+			refImg:cv2.Mat = cv2.imread(f"./ref/elite/{e}", cv2.IMREAD_UNCHANGED)
+			refGray:cv2.Mat = toGrayscale(cv2.bitwise_and(refImg, refImg, mask=refImg[:,:,3]))
+			for size in range(self.promotionAnchor.size-5,self.promotionAnchor.size+5):
+				if len(data) > 0 and streak < 0: break
 				refGrayResized:cv2.Mat = cv2.resize(refGray, (size,size))
 				res:cv2.Mat = cv2.matchTemplate(targetCropped, refGrayResized, cv2.TM_CCOEFF_NORMED)
 				loc:tuple[cv2.Mat, ...] = np.where(res >= .7) # type: ignore
@@ -106,7 +127,7 @@ class Operator:
 		data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 		streak = 0;
 		self.potentialCropBox.tolerance = 10
-		target:cv2.Mat = self.ORIGINAL.copy()
+		target:cv2.Mat = self.ORIGINAL
 		target = cv2.split(target)[0] # type: ignore / cv2.bitwise_and(target,target,mask=target[:,:,2])
 		targetCropped:cv2.Mat = cv2.threshold(self.potentialCropBox.crop(target),230, 255, cv2.THRESH_BINARY)[1] # type: ignore
 		for p in os.listdir("./ref/potential/")[::-1]:
@@ -145,7 +166,7 @@ class Operator:
 		)
 	def getLevelPosition(self) -> Circle:
 		# gray_blur = cv2.GaussianBlur(gray, (7, 7), 0)
-		circles:cv2.Mat|None = cv2.HoughCircles(toGrayscale(self.ORIGINAL.copy()), cv2.HOUGH_GRADIENT, 1, 100, param1=255, param2=100, minRadius=int(self.professionAnchor.size/2), maxRadius=self.professionAnchor.size) # type: ignore
+		circles:cv2.Mat|None = cv2.HoughCircles(toGrayscale(self.ORIGINAL), cv2.HOUGH_GRADIENT, 1, 100, param1=255, param2=100, minRadius=int(self.professionAnchor.size/2), maxRadius=self.professionAnchor.size) # type: ignore
 		# if circles is not None:
 		return Circle(*np.round(circles[0,])[0]) # type: ignore
 	def getOperatorPosition(self) -> CropBox:
@@ -171,9 +192,25 @@ class Operator:
 			h=int(self.promotionAnchor.size*.77),
 			tolerance=10
 		)
+	def getModuleTypePosition(self) -> SkillBox:
+		return SkillBox(
+			x=int(self.promotionAnchor.x*1.21),
+			y=int(self.promotionAnchor.y*2.23),
+			w=int(self.promotionAnchor.size*1),
+			h=int(self.promotionAnchor.size*1),
+			tolerance=10
+		)
+	def getModuleStagePosition(self) -> SkillBox:
+		return SkillBox(
+			x=int(self.promotionAnchor.x*1.35),
+			y=int(self.promotionAnchor.y*2.35),
+			w=int(self.promotionAnchor.size*1.2),
+			h=int(self.promotionAnchor.size*.25),
+			tolerance=10
+		)
 
 	def drawAllBounds(self) -> cv2.Mat:
-		cpy:cv2.Mat = self.ORIGINAL.copy()
+		cpy:cv2.Mat = self.ORIGINAL
 		drawBoundingBox(cpy, *self.prfCropBox.toTuple(), text=self.profession)
 		starPos:list[tuple[int,...]] = [s[0].add([self.rarityCropBox.toTuple()]) for s in self.rarityStars]
 		for p in range(len(starPos)):
@@ -182,13 +219,38 @@ class Operator:
 		drawBoundingBox(cpy, *self.levelCropBox.getBoundingBox().toTuple(), text=f"LVL {self.level}")
 		drawBoundingBox(cpy, *self.promotionCropBox.toTuple(), text=f"E {self.promotion}", inset=True)
 		drawBoundingBox(cpy, *self.potentialCropBox.toTuple(), text=f"POT {self.potential}")
+		drawBoundingBox(cpy, *self.skills.sb.toTuple(), text=f"R {self.skills.rank}")
+		for m in self.skills.masteries:
+			if m==None: continue
+			if m.masteryCropBox==None: continue
+			drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
+		# drawBoundingBox
 		return cpy
+
+	def toJson(self) -> dict[str, str | None | int | dict[str, int | list[int | None]] | dict[str, str | int | None]]:
+		data:dict[str, str | None | int | dict[str, int | list[int | None]] | dict[str, str | int | None]] = {
+			"id": self.id,
+			"level": self.level,
+			"promotion": self.promotion,
+			"potential": self.potential,
+			"skills": {
+				"rank": self.skills.rank,
+				"masteries": [m.mastery if m != None else None for m in self.skills.masteries]
+			},
+			"module": None
+		}
+		if self.module.stage != None:
+			data["module"] = {
+				"type": self.module.type,
+				"stage": self.module.stage
+			}
+		return data
 
 
 def getProfessionReferenceData(original:cv2.Mat) -> RefData:
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
-	target:cv2.Mat = toGrayscale(original.copy())
+	target:cv2.Mat = toGrayscale(original)
 	for size in range(108,150,1):
 		if len(data) > 0 and streak < 0: break
 		for c in os.listdir("./ref/classes/alpha/"):
@@ -205,7 +267,7 @@ def getProfessionReferenceData(original:cv2.Mat) -> RefData:
 def getPromotionReferenceData(original:cv2.Mat) -> RefData:
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
-	target:cv2.Mat = toGrayscale(cv2.threshold(original.copy(), 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
+	target:cv2.Mat = toGrayscale(cv2.threshold(original, 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
 	for size in range(100,140):
 		if len(data) > 0 and streak < 0: break
 		for e in os.listdir("./ref/elite/"):
@@ -222,27 +284,30 @@ def getPromotionReferenceData(original:cv2.Mat) -> RefData:
 
 def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[str], chunkSize:int) -> list[tuple[str,float]]:
 	all:list[tuple[str,float]] = []
-	for cropped in region.cropSplit(original.copy(), chunkSize):
+	for cropped in region.cropSplit(original, chunkSize):
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
 		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/10),int(mask.shape[1]/10))) # type: ignore
 		mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 		read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
-		filteredData = list(filter(lambda x: len(str(x)) > 2, read["text"]))
+		filteredData:list[str] = []
+		for r in read["text"]:
+			if len(r) > 2: filteredData.append(r)
 		matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58)
 		if len(matches1) > 0:
 			simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 			all.append((matches1[0], simScore))
 	return all
 def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizees:list[int]=[150, 300]) -> tuple[str,float]|None:
-	cropped:cv2.Mat = region.crop(original.copy())
+	cropped:cv2.Mat = region.crop(original)
 	mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
 	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/10),int(mask.shape[1]/10))) # type: ignore
 	mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 	croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 	read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
-	# print(read["text"])
-	filteredData = list(filter(lambda x: len(str(x)) > 2, read["text"]))
+	filteredData:list[str] = []	
+	for r in read["text"]:
+		if len(r) > 2: filteredData.append(r)
 	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58)
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()

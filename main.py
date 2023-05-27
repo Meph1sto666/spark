@@ -13,8 +13,9 @@ import os
 from lib.types.unit import *
 from lib.types.misc import *
 import colorama
-from PIL import Image
+# from PIL import Image
 from datetime import datetime as dt
+from lib.formatter import *
 colorama.init(True) # type: ignore
 
 
@@ -25,21 +26,25 @@ success:list[Operator] = []
 
 allDeltas:list[float] = []
 # for f in os.listdir("./testdata/")[31:32]: # gg
-for f in os.listdir("./testdata/")[0:]:
-	t0:dt = dt.now()
+
+dmp = []
+
+for f in os.listdir("./testdata/")[0:1]:
 	try:
+		t0:dt = dt.now()
 		o = Operator(f"./testdata/{f}", profRefDta, promRefDta)
 		allDeltas.append((dt.now()-t0).total_seconds())
-		if allDeltas[-1] < .5: c = colorama.Fore.LIGHTCYAN_EX
-		elif allDeltas[-1] < .75: c = colorama.Fore.GREEN
-		elif allDeltas[-1] < 1: c = colorama.Fore.YELLOW
+		if allDeltas[-1] < .75: c: str = colorama.Fore.LIGHTCYAN_EX
+		elif allDeltas[-1] < 1: c = colorama.Fore.GREEN
+		elif allDeltas[-1] < 1.5: c = colorama.Fore.YELLOW
 		else: c = colorama.Fore.RED
-		print(o.IMAGE_PATH.ljust(30), f"NAME: {o.name}".ljust(20), f"E{o.promotion} LVL{o.level}".ljust(9), f"POT {o.potential}".ljust(6), f"{c}TIME: {allDeltas[-1]}")
+		print(o.IMAGE_PATH.ljust(30), f"NAME: {o.name}".ljust(20), f"E{o.promotion} LVL{o.level}".ljust(9), f"POT {o.potential}".ljust(6), f"RANK {o.skills.rank}".ljust(7), f"MASTERIES {[m.mastery if m != None else None for m in o.skills.masteries]}".ljust(30), f"M {o.module.type} S {o.module.stage}".ljust(16), f"{c}TIME: {allDeltas[-1]}")
 		success.append(o)
-
 		# Image.fromarray(bgraToRgba(o.skills.sb.crop(o.ORIGINAL))).show() # type: ignore
 		# Image.fromarray(bgraToRgba(o.drawAllBounds())).show()
+		dmp.append(o.toJson()) # type: ignore
 	except:
-		raise
 		print(f"{colorama.Fore.LIGHTBLUE_EX} {f}")
+
+json.dump(dmp, open("./dmp.json", "w"))
 print(str(len(success)/len(os.listdir("./testdata/"))*100)+f"% in {sum(allDeltas)} [avg / {sum(allDeltas)/len(allDeltas)}]")
