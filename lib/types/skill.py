@@ -2,25 +2,23 @@ from lib.types.misc import *
 from lib.types.errors import *
 from lib.types.cropbox import *
 import numpy as np
-import pytesseract # type: ignore
 import cv2
-from PIL import Image
 
 class Skill:
 	def __init__(self, img:cv2.Mat, box:CropBox) -> None:
-		self.ORIGINAL:cv2.Mat = img
 		self.skillCropBox:CropBox = box
 		self.masteryCropBox:CropBox|None = None
-		self.mastery:int = self.conjectSkillMasteryLevel()
+		self.mastery:int = self.conjectSkillMasteryLevel(img)
 		# self.selected:bool = self.conjectSkillSelection()
 
-	def conjectSkillMasteryLevel(self) -> int:
-		cropped:cv2.Mat = self.skillCropBox.crop(self.ORIGINAL)
+	def conjectSkillMasteryLevel(self, img:cv2.Mat) -> int:
+		cropped:cv2.Mat = self.skillCropBox.crop(img)
 		imgGray:cv2.Mat = toGrayscale(cropped)
-		imgThresh:cv2.Mat = cv2.threshold(imgGray, 150, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		imgThresh:cv2.Mat = cv2.threshold(imgGray, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
 		data:list[tuple[float,int,CropBox]] = []
 		streak = 0
-		for m in os.listdir("./ref/mastery/"):
+		files:list[str] = os.listdir("./ref/mastery/")
+		for m in files:
 			refImg:cv2.Mat = cv2.imread(f"./ref/mastery/{m}")
 			refGray:cv2.Mat = toGrayscale(refImg)
 			for s in range(int(self.skillCropBox.w/5)-5, int(self.skillCropBox.w/5)+5):
@@ -30,7 +28,7 @@ class Skill:
 				if len(loc[0]) > 0:
 					pos:list[tuple[int,...]] = list(zip(*loc[::-1]))
 					data.append((float(np.max(res)), int(os.path.splitext(m)[0]), CropBox(pos[0][0], pos[0][1], refResized.shape[1], refResized.shape[0]))) # type: ignore
-					streak = 7
+					streak:int = len(files)-1
 				else: streak-=1
 		if not len(data) > 0: return 0
 		srt:tuple[float, int, CropBox] = sorted(data, key=lambda x: -x[0])[0]
@@ -56,28 +54,41 @@ class Skill:
 	# 	return False
 
 class Skills:
-	def __init__(self, img:cv2.Mat, skillBox:SkillBox) -> None:
-		self.ORIGINAL:cv2.Mat = img
+	def __init__(self, img:cv2.Mat, skillBox:SkillBox, rarity:int) -> None:
 		self.sb:SkillBox = skillBox
-		self.rank:int = self.conjectSkillRank()
-		self.masteries:list[Skill|None] = [None, None, None]
+		self.rank:int = self.conjectSkillRank(img)
+		self.masteries:list[Skill|None] = []
+		amount = 0
+		if rarity > 5: amount:int = 3 
+		elif rarity > 3: amount = 2
+		elif rarity > 2: amount = 1
 		if self.rank == 7:
-			self.masteries = [Skill(self.ORIGINAL, s) for s in skillBox.getSkillCropBoxes()]
+			self.masteries = [Skill(img, s) for s in skillBox.getSkillCropBoxes(amount)]
 
-	def conjectSkillRank(self) -> int:
-		cropped:cv2.Mat = self.sb.cropRank(self.ORIGINAL)
-		letters:list[CropBox] = findLetters(cropped)
-		# cropped = cropped[25:cropped.shape[0]-25, 75:]
-		gray:cv2.Mat = toGrayscale(cropped)
-		for l in letters:
-			lttr:cv2.Mat = l.crop(gray)
-			threshed:cv2.Mat = cv2.threshold(lttr, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore
-			data:dict[str, list[str|int]] = pytesseract.image_to_data(threshed, config="--psm 10 --oem 3 -c tessedit_char_whitelist=1234567", output_type=pytesseract.Output.DICT) # type: ignore
-			filtered:list[str | int] = list(filter(lambda x: len(str(x)) == 1, data["text"]))
-			if len(filtered) > 0:
-				Image.fromarray(lttr).show()
-				return int(filtered[0])
-			
-
-		
+	def conjectSkillRank(self, img:cv2.Mat) -> int:
+		cropped:cv2.Mat = self.sb.cropRank(img)
+		imgGray:cv2.Mat = toGrayscale(cropped)
+		# imgThresh:cv2.Mat = cv2.threshold(imgGray, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		data:list[tuple[float,int,CropBox]] = []
+		streak = 0
+		for m in os.listdir("./ref/rank/"):
+			refImg:cv2.Mat = cv2.imread(f"./ref/rank/{m}", cv2.IMREAD_UNCHANGED)
+			refGray:cv2.Mat = toGrayscale(refImg)
+			refMasked:cv2.Mat = cv2.bitwise_and(refGray, refGray, mask=refImg[:,:,3])
+			for s in range(int(self.sb.h/3)-5, int(self.sb.h/3)+5):
+				refResized:cv2.Mat = cv2.resize(refMasked, (s,s))
+				res:cv2.Mat = cv2.matchTemplate(imgGray, refResized, cv2.TM_CCOEFF_NORMED)
+				loc:tuple[cv2.Mat, ...] = np.where(res >= .7) # type: ignore
+				if len(loc[0]) > 0:
+					pos:list[tuple[int,...]] = list(zip(*loc[::-1]))
+					data.append((float(np.max(res)), int(os.path.splitext(m)[0]), CropBox(pos[0][0], pos[0][1], refResized.shape[1], refResized.shape[0]))) # type: ignore
+					streak = 2
+				else: streak-=1
+		if len(data) > 0:
+			srt:tuple[float, int, CropBox] = sorted(data, key=lambda x: -x[0])[0]
+			self.masteryCropBox:CropBox = srt[2]
+			return srt[1]
 		raise SkillRankConjectionFailed()
+
+	def isMasteryable(self) -> bool:
+		return self.rank > 6

@@ -1,50 +1,24 @@
-#skills: targetImg.crop((targetImg.width-650,500,targetImg.width,650))
-#class: targetImg.crop((0,875,200,targetImg.height))
-#elite: targetImg.crop((targetImg.width-625,300,targetImg.width-450,450))
-"""
-# tD: tuple[int, ...] = template.shape[::-1]
-if len(loc[0]) > 0:
-	# print(c, len(loc[0]))
-	# for pt in zip(*loc[::-1]):
-	# 	cv2.rectangle(target, pt, (pt[0]+tD[-2], pt[1]+tD[-1]), (255,0,255),2) # type: ignore
-	# Image.fromarray(target,"L").show() # type: ignore
-"""
+from PySide2 import QtWidgets
 import os
-from lib.types.unit import *
-from lib.types.misc import *
-import colorama
-# from PIL import Image
-from datetime import datetime as dt
-from lib.formatter import *
-colorama.init(True) # type: ignore
 
+class MainWindow(QtWidgets.QMainWindow):
+	def __init__(self) -> None:
+		super().__init__()
 
-profRefDta:RefData = RefData(0.8907595872879028, 112, 26, 834)
-# promRefDta:RefData = RefData(0.8907595872879028, 112, 26, 834)
-promRefDta:RefData = RefData(0.9001659750938416, 126, 1148, 323)
-success:list[Operator] = []
+  
+		self.imgSelect = QtWidgets.QComboBox(self)
+		self.imgSelect.addItems(os.listdir("./testdata/"))
+		self.imgSelect.setMaximumHeight(30)
+		self.setCentralWidget(self.imgSelect)
+		self.imgSelect.currentIndexChanged.connect(self.on_combo_box_changed)
 
-allDeltas:list[float] = []
-# for f in os.listdir("./testdata/")[31:32]: # gg
+		
+	def on_combo_box_changed(self, index:int) -> None:
+		print('Selected index:', index)
+		print('Selected text:', self.imgSelect.currentText())
 
-dmp = []
-
-for f in os.listdir("./testdata/")[0:1]:
-	try:
-		t0:dt = dt.now()
-		o = Operator(f"./testdata/{f}", profRefDta, promRefDta)
-		allDeltas.append((dt.now()-t0).total_seconds())
-		if allDeltas[-1] < .75: c: str = colorama.Fore.LIGHTCYAN_EX
-		elif allDeltas[-1] < 1: c = colorama.Fore.GREEN
-		elif allDeltas[-1] < 1.5: c = colorama.Fore.YELLOW
-		else: c = colorama.Fore.RED
-		print(o.IMAGE_PATH.ljust(30), f"NAME: {o.name}".ljust(20), f"E{o.promotion} LVL{o.level}".ljust(9), f"POT {o.potential}".ljust(6), f"RANK {o.skills.rank}".ljust(7), f"MASTERIES {[m.mastery if m != None else None for m in o.skills.masteries]}".ljust(30), f"M {o.module.type} S {o.module.stage}".ljust(16), f"{c}TIME: {allDeltas[-1]}")
-		success.append(o)
-		# Image.fromarray(bgraToRgba(o.skills.sb.crop(o.ORIGINAL))).show() # type: ignore
-		# Image.fromarray(bgraToRgba(o.drawAllBounds())).show()
-		dmp.append(o.toJson()) # type: ignore
-	except:
-		print(f"{colorama.Fore.LIGHTBLUE_EX} {f}")
-
-json.dump(dmp, open("./dmp.json", "w"))
-print(str(len(success)/len(os.listdir("./testdata/"))*100)+f"% in {sum(allDeltas)} [avg / {sum(allDeltas)/len(allDeltas)}]")
+if __name__ == '__main__':
+	app = QtWidgets.QApplication([])
+	window = MainWindow()
+	window.show()
+	app.exec_()

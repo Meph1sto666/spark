@@ -4,7 +4,6 @@ from datetime import datetime as dt
 from lib.types.errors import *
 import cv2
 from lib.types.cropbox import *
-from PIL import Image
 
 class RefData:
 	def __init__(self, conf:float, size:int, x:int, y:int) -> None:
@@ -31,7 +30,7 @@ def filterNamesByProfession(c:str) -> list[str]:
 	ops:list[dict[str, str]] = dict(json.load(open("./ref/class2op.json"))).get(c, [])
 	return [o["name"] for o in ops]
 def filterAvatarsByProfession(c:str) -> list[str]:
-	ops:list[dict[str, str]] = json.load(open("./ref/class2op.json")).get(c)
+	ops:list[dict[str, str]] = dict(json.load(open("./ref/class2op.json"))).get(c, [])
 	opIds:list[str] = [o.get("id", "None").split("_")[1] for o in ops]
 	return list(filter(lambda x: x.split("_")[1] in opIds, os.listdir("./ref/avatars/")))
 def getIdByName(name:str) -> str:
@@ -82,6 +81,6 @@ def findLetters(cropped:cv2.Mat, minArea:int=0, maxArea:int=10000) -> list[CropB
 	contours:cv2.Mat = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0] # type: ignore
 	cropBoxes:list[CropBox] = []
 	for cnt in contours:
-		if not minArea < cv2.contourArea(cnt) < maxArea: continue
-		cropBoxes.append(CropBox(*cv2.boundingRect(cnt), tolerance=5)) # type: ignore
+		if not minArea < cv2.contourArea(cnt) < maxArea: continue # type: ignore
+		cropBoxes.append(CropBox(*cv2.boundingRect(cnt), tolerance=0)) # type: ignore
 	return cropBoxes

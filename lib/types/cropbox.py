@@ -53,7 +53,7 @@ class SkillBox(CropBox):
 				for s in range(3)
 			]
 
-	def getSkillCropBoxes(self) -> list[CropBox]:
+	def getSkillCropBoxes(self, amount:int=3) -> list[CropBox]:
 		return [
 				CropBox(
 					x=self.x+(s*self.skillWidth),
@@ -61,7 +61,7 @@ class SkillBox(CropBox):
 					w=self.skillWidth,
 					h=self.h
 				)
-				for s in range(3)
+				for s in range(amount)
 			]
 
 	def cropRank(self, img:cv2.Mat) -> cv2.Mat:

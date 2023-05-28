@@ -7,7 +7,6 @@ import cv2
 
 class Module:
 	def __init__(self, img:cv2.Mat, opId:str, stageCropBox:CropBox, typeCropBox:CropBox) -> None:
-		self.ORIGINAL = img
 		self.OP_ID:str = opId
 		self.stageCropBox:CropBox = stageCropBox
 		self.typeCropBox:CropBox = typeCropBox
@@ -18,22 +17,22 @@ class Module:
 		self.foundTypeCropBox:CropBox|None = None
 		# self.foundStateCropBox:CropBox|None
 		if len(self.moduleOptions) > 0:
-			self.stage = self.conjectModuleStage()
+			self.stage = self.conjectModuleStage(img)
 			if self.stage != None:
 				if len(self.moduleOptions) == 1:
 					self.type = self.moduleOptions[0].get("typeName")
 				else:
-					self.type = self.conjectModuleType()
+					self.type = self.conjectModuleType(img)
 			
-	def conjectModuleStage(self) -> int | None:
-		stageImg:cv2.Mat = self.stageCropBox.crop(self.ORIGINAL)
+	def conjectModuleStage(self, img:cv2.Mat) -> int | None:
+		stageImg:cv2.Mat = self.stageCropBox.crop(img)
 		stageThresh:cv2.Mat = cv2.threshold(stageImg, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
 		data:dict[str, list[str]] = pytesseract.image_to_data(stageThresh, config="--psm 10 --oem 3 -c tessedit_char_whitelist=123", output_type=pytesseract.Output.DICT) # type: ignore
 		filtered:list[str] = list(filter(lambda x: 0 < len(x) < 2, data["text"]))
 		return int(filtered[0]) if len(filtered) > 0 else None
 
-	def conjectModuleType(self) -> str | None:
-		cropped:cv2.Mat = self.typeCropBox.crop(self.ORIGINAL)
+	def conjectModuleType(self, img:cv2.Mat) -> str | None:
+		cropped:cv2.Mat = self.typeCropBox.crop(img)
 		imgThresh:cv2.Mat = cv2.threshold(toGrayscale(cropped), 130, 255, cv2.THRESH_BINARY)[1] # type: ignore
 		data:list[tuple[float,str,CropBox]] = []
 		streak:int = 0
