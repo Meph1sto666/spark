@@ -11,7 +11,7 @@
 1. Install the python librarys
 2. get some screenshots and put them into `./data/targets/`
 3. run `setup.bat`
-4. run `specter.bat`
+4. run `v0.6.3.bat`
 5. enjoy your export in `./data/out/`
 
 ## ToDo / feature list
