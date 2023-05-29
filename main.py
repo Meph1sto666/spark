@@ -1,24 +1,10 @@
-from PySide2 import QtWidgets
-import os
+import sys
+from lib.gui.main_window import *
 
-class MainWindow(QtWidgets.QMainWindow):
-	def __init__(self) -> None:
-		super().__init__()
-
-  
-		self.imgSelect = QtWidgets.QComboBox(self)
-		self.imgSelect.addItems(os.listdir("./testdata/"))
-		self.imgSelect.setMaximumHeight(30)
-		self.setCentralWidget(self.imgSelect)
-		self.imgSelect.currentIndexChanged.connect(self.on_combo_box_changed)
-
-		
-	def on_combo_box_changed(self, index:int) -> None:
-		print('Selected index:', index)
-		print('Selected text:', self.imgSelect.currentText())
-
-if __name__ == '__main__':
-	app = QtWidgets.QApplication([])
-	window = MainWindow()
-	window.show()
-	app.exec_()
+# img:cv2.Mat = cv2.imread("./testdata/0.png")
+app = QtWidgets.QApplication(sys.argv)
+window = MainWindow()
+window.setMinimumHeight(500)
+window.setMinimumWidth(888)
+window.show()
+sys.exit(app.exec_())
