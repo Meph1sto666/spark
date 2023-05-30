@@ -5,14 +5,14 @@
 - pyautogui &#x2022; screenshots and emulator automations
 - cv2 &#x2022; image recognition
 - pytesseract &#x2022; text recognition
-- PySide &#x2022; GUI
+- PySide6 &#x2022; GUI
 
 ## How to use the test version
 
 1. Install the python librarys
 2. get some screenshots and put them into `./userdata/targets/`
 3. run `setup.bat`
-4. run `v0.6.3.bat`
+4. run `v0.6.4.bat`
 5. enjoy your export in `./userdata/out/`
 
 ## ToDo / feature list
