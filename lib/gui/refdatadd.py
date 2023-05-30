@@ -1,5 +1,5 @@
-from PySide2.QtWidgets import * # type: ignore
-from PySide2 import QtCore # type: ignore
+from PySide6.QtWidgets import * # type: ignore
+from PySide6 import QtCore # type: ignore
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:

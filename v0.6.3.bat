@@ -1,8 +1,8 @@
 @ECHO OFF
 CD %~dp0
-IF NOT EXIST data\refs ( MKDIR data\refs )
-IF NOT EXIST data\saves ( MKDIR data\saves )
-IF NOT EXIST data\targets (
+IF NOT EXIST userdata\refs ( MKDIR userdata\refs )
+IF NOT EXIST userdata\saves ( MKDIR userdata\saves )
+IF NOT EXIST userdata\targets (
 	ECHO Please run setup.bat first
 	PAUSE
 	EXIT

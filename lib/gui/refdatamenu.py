@@ -1,1 +1,1 @@
-import PySide2 # type: ignore
+import PySide6 # type: ignore

@@ -1,4 +1,4 @@
-from PySide2 import QtWidgets
+from PySide6 import QtWidgets
 
 class OpAnalyserDock(QtWidgets.QDockWidget):
 	def __init__(self) -> None:

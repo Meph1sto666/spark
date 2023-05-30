@@ -1,2 +1,2 @@
-from PySide2.QtWidgets import * # type: ignore
+from PySide6.QtWidgets import * # type: ignore
 
