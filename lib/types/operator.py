@@ -339,3 +339,6 @@ def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chu
 			if len(res) > 0:
 				return res[0]
 		return None
+
+def load(opId:str) -> Operator:
+	return pickle.load(open(f"./userdata/saves/{opId}.spec", "rb"))

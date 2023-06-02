@@ -1,0 +1,23 @@
+OpDataDock {
+	background-color: #000000;
+
+}
+
+QTableWidget {
+	background-color: transparent;
+	height: 1080px;
+}
+
+QTableWidget::item:nth-child(even) {
+	background-color: blueviolet;
+}
+
+QTableWidget::item {
+	background-color: red;
+	width: 15%;
+}
+
+QHeaderView::section {
+	background-color: green;
+	color: white;
+}

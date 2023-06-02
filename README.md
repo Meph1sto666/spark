@@ -10,10 +10,10 @@
 ## How to use the test version
 
 1. Install the python librarys
-2. get some screenshots and put them into `./userdata/targets/`
-3. run `setup.bat`
-4. run `v0.6.4.bat`
-5. enjoy your export in `./userdata/out/`
+2. Get some screenshots and put them into `./userdata/targets/`
+3. Run `setup.bat`
+4. Run `v0.6.5.bat`
+5. Enjoy your export in `./userdata/out/`
 
 ## ToDo / feature list
 
@@ -53,10 +53,10 @@
 
 - [ ] Find support positions
 - Operator recognition
-  - [ ] Recognise potential (limiting operator selection)
-  - [ ] Recognise level (limiting operator selection)
-  - [ ] Recognise promotion (limiting operator selection)
-  - [ ] Recognise operator by avatar
+  - [ ] Recognize potential (limiting operator selection)
+  - [ ] Recognize level (limiting operator selection)
+  - [ ] Recognize promotion (limiting operator selection)
+  - [ ] Recognize operator by avatar
 
 ### GUI
 

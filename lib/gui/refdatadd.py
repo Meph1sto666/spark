@@ -10,15 +10,15 @@ class MainWindow(QMainWindow):
         file_menu:QMenu = menubar.addMenu('File')
 
         # create a "Open" action
-        open_action:QAction = QAction('Open', self)
+        open_action:QAction = QAction('Open', self) # type: ignore
         open_action.setShortcut('Ctrl+O') # type: ignore
         open_action.triggered.connect(self.open_file_dialog) # type: ignore
 
         # add the "Open" action to the "File" menu
-        file_menu.addAction(open_action)
+        file_menu.addAction(open_action) # type: ignore
 
     def openFileDialog(self) -> None:
-        options = QFileDialog.Options()
+        options = QFileDialog.Options() # type: ignore
         options |= QFileDialog.DontUseNativeDialog # type: ignore
         filename:str = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "", "All Files (*);;Python Files (*.py)", options=options)[0] # type: ignore
         if filename:
