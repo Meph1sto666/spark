@@ -12,7 +12,7 @@
 1. Install the python librarys
 2. Get some screenshots and put them into `./userdata/targets/`
 3. Run `setup.bat`
-4. Run `v0.6.5.bat`
+4. Run `v0.6.6.bat`
 5. Enjoy your export in `./userdata/out/`
 
 ## ToDo / feature list

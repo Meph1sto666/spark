@@ -72,7 +72,7 @@ class Operator:
 			loc:tuple=np.where(cv2.matchTemplate(toGrayscale(cropped), template, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
 			if len(loc[0]) > 0:
 				return re.findall(r"(?<=class_)\w+", c)[0]
-		raise OperatorProfessionConjectionFailed()
+		raise OperatorProfessionConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorName(self, options:list[str]) -> str:
 		if 0 < len(options) < 2: return options[0]
 		name:tuple[str,float]|None = conjectTextInRegion(self.original, self.nameCropBox, options, [150, 200, 250, 300, 100, 350, 400, 50])
@@ -88,7 +88,7 @@ class Operator:
 			if 50 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
 				if len(cnt) < 5: continue
 				(x,y), (MA,ma), angle = cv2.fitEllipse(cnt) # type: ignore
-				if MA / ma < .5: continue
+				if MA / ma < .6: continue
 				stars.append(cnt) # type: ignore
 		for star in stars:
 			self.rarityStars.append((CropBox(*cv2.boundingRect(star)),x,y,angle)) # type: ignore
@@ -97,19 +97,20 @@ class Operator:
 		return len(stars)
 	def conjectOperatorLevel(self) -> int:
 		cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.original))
-		mask:cv2.Mat = cv2.threshold(cropped, 250, 255, cv2.THRESH_BINARY)[1] # type: ignore / # tweak thresh if fails
+		mask:cv2.Mat = cv2.threshold(cropped, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore / # tweak thresh if fails
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
+		# Image.fromarray(croppedMasked).save(f"./preprocessed/preprocess_{self.name}.png","png")
 		read:dict[str,list[str]] = pytesseract.image_to_data(croppedMasked, config="--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789", output_type=pytesseract.Output.DICT) # type: ignore
 		filtered:list[str] = []
 		for r in read["text"]:
 			if len(r) > 0: filtered.append(r)
 		if len(filtered) > 0: return int(filtered[0])
-		raise OperatorLevelConjectionFailed()	
+		raise OperatorLevelConjectionFailed(self.IMAGE_PATH)	
 
 	def conjectOperatorPromotionLevel(self) -> int: # maybe enough confidence without matching multiple sizes 
 		data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 		streak = 0;
-		target:cv2.Mat = toGrayscale(cv2.threshold(self.original, 200, 255, cv2.THRESH_BINARY)[1]) # type: ignore
+		target:cv2.Mat = toGrayscale(cv2.threshold(self.original, 150, 255, cv2.THRESH_BINARY)[1]) # type: ignore
 		self.promotionCropBox.tolerance = 20
 		targetCropped:cv2.Mat = self.promotionCropBox.crop(target)
 		for e in os.listdir("./ref/elite/"):
@@ -169,11 +170,17 @@ class Operator:
 			h=int(.28*self.professionAnchor.size),
 			tolerance=5
 		)
+	# def getLevelPosition(self) -> Circle:
+	# 	# gray_blur = cv2.GaussianBlur(gray, (7, 7), 0)
+	# 	circles:cv2.Mat|None = cv2.HoughCircles(toGrayscale(self.original), cv2.HOUGH_GRADIENT, 1, 100, param1=255, param2=100, minRadius=int(self.professionAnchor.size/2), maxRadius=self.professionAnchor.size) # type: ignore
+	# 	# if circles is not None:
+	# 	return Circle(*np.round(circles[0,])[0]) # type: ignore
 	def getLevelPosition(self) -> Circle:
-		# gray_blur = cv2.GaussianBlur(gray, (7, 7), 0)
-		circles:cv2.Mat|None = cv2.HoughCircles(toGrayscale(self.original), cv2.HOUGH_GRADIENT, 1, 100, param1=255, param2=100, minRadius=int(self.professionAnchor.size/2), maxRadius=self.professionAnchor.size) # type: ignore
-		# if circles is not None:
-		return Circle(*np.round(circles[0,])[0]) # type: ignore
+		return Circle(
+			x=int(self.professionAnchor.size*10.8),
+			y=int(self.professionAnchor.size*1.7),
+			r=int(0.0781*self.original.shape[0])
+		)
 	def getOperatorPosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.x+4*self.professionAnchor.size),
@@ -220,17 +227,17 @@ class Operator:
 		starPos:list[tuple[int,...]] = [s[0].add([self.rarityCropBox.toTuple()]) for s in self.rarityStars]
 		for p in range(len(starPos)):
 			drawBoundingBox(cpy, *starPos[p], text=str(p))
-		drawBoundingBox(cpy, *self.nameCropBox.toTuple(), text=self.id, inset=True)
-		drawBoundingBox(cpy, *self.levelCropBox.getBoundingBox().toTuple(), text=f"LVL {self.level}")
-		drawBoundingBox(cpy, *self.promotionCropBox.toTuple(), text=f"E {self.promotion}", inset=True)
-		drawBoundingBox(cpy, *self.potentialCropBox.toTuple(), text=f"POT {self.potential}")
-		drawBoundingBox(cpy, *self.skills.sb.toTuple(), text=f"R {self.skills.rank}")
-		for m in self.skills.masteries:
-			if m==None: continue
-			if m.masteryCropBox==None: continue
-			drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
-		if self.module.foundTypeCropBox != None:
-			drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
+		# drawBoundingBox(cpy, *self.nameCropBox.toTuple(), text=self.id, inset=True)
+		# drawBoundingBox(cpy, *self.levelCropBox.getBoundingBox().toTuple(), text=f"LVL {self.level}")
+		# drawBoundingBox(cpy, *self.promotionCropBox.toTuple(), text=f"E {self.promotion}", inset=True)
+		# drawBoundingBox(cpy, *self.potentialCropBox.toTuple(), text=f"POT {self.potential}")
+		# drawBoundingBox(cpy, *self.skills.sb.toTuple(), text=f"R {self.skills.rank}")
+		# for m in self.skills.masteries:
+		# 	if m==None: continue
+		# 	if m.masteryCropBox==None: continue
+		# 	drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
+		# if self.module.foundTypeCropBox != None:
+		# 	drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
 		return cpy
 
 	def save(self, folder:str) -> None:
@@ -307,7 +314,7 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 	all:list[tuple[str,float]] = []
 	for cropped in region.cropSplit(original, chunkSize):
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/10),int(mask.shape[1]/10))) # type: ignore
+		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/5),int(mask.shape[1]/10))) # type: ignore
 		mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 		read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
@@ -322,14 +329,14 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizees:list[int]=[150, 300]) -> tuple[str,float]|None:
 	cropped:cv2.Mat = region.crop(original)
 	mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/10),int(mask.shape[1]/10))) # type: ignore
+	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/5), int(mask.shape[1]/10))) # type: ignore
 	mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 	croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 	read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
 	filteredData:list[str] = []	
 	for r in read["text"]:
-		if len(r) > 2: filteredData.append(r)
-	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58)
+		if len(r) > 0: filteredData.append(r)
+	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.6) # .58
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 		return (matches1[0], simScore)
