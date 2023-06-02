@@ -12,7 +12,7 @@ import difflib
 import gzip
 import pickle
 from datetime import datetime as dt
-# from PIL import Image
+from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
 tsr = pytesseract.pytesseract.tesseract_cmd = "./dep/Tesseract-OCR/tesseract.exe"
@@ -81,14 +81,16 @@ class Operator:
 	def conjectOperatorRarity(self) -> int:
 		cropped:cv2.Mat = self.rarityCropBox.crop(self.original)
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
+		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/9), int(mask.shape[1]/9))) # type: ignore
+		mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
+		croppedMasked:cv2.Mat = cv2.bitwise_or(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 		croppedMaskedGray:cv2.Mat = toGrayscale(croppedMasked)
 		stars:list[tuple[int,...]] = []
 		for cnt in cv2.findContours(croppedMaskedGray, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
 			if 50 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
 				if len(cnt) < 5: continue
 				(x,y), (MA,ma), angle = cv2.fitEllipse(cnt) # type: ignore
-				if MA / ma < .6: continue
+				if MA / ma < .5: continue
 				stars.append(cnt) # type: ignore
 		for star in stars:
 			self.rarityStars.append((CropBox(*cv2.boundingRect(star)),x,y,angle)) # type: ignore
@@ -314,14 +316,14 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 	all:list[tuple[str,float]] = []
 	for cropped in region.cropSplit(original, chunkSize):
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/5),int(mask.shape[1]/10))) # type: ignore
+		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/6),int(mask.shape[1]/10))) # type: ignore
 		mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 		read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
 		filteredData:list[str] = []
 		for r in read["text"]:
 			if len(r) > 2: filteredData.append(r)
-		matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58)
+		matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.5)
 		if len(matches1) > 0:
 			simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 			all.append((matches1[0], simScore))
@@ -329,14 +331,14 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizees:list[int]=[150, 300]) -> tuple[str,float]|None:
 	cropped:cv2.Mat = region.crop(original)
 	mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/5), int(mask.shape[1]/10))) # type: ignore
+	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/6), int(mask.shape[1]/10))) # type: ignore
 	mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
 	croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
 	read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
 	filteredData:list[str] = []	
 	for r in read["text"]:
-		if len(r) > 0: filteredData.append(r)
-	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.6) # .58
+		if len(r) > 2: filteredData.append(r)
+	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58) # .58
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 		return (matches1[0], simScore)
