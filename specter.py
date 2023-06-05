@@ -24,9 +24,9 @@ for f in sorted(os.listdir("./userdata/targets/")[0:]):
 		o.save("./userdata/saves/")
 		success.append(o)
 		dmp.append(o.toJson()) # type: ignore
-		print(o.IMAGE_PATH.ljust(40), f"[NAME: {o.name}]".ljust(26), f"[E{o.promotion} LVL{str(o.level).rjust(2)}]".ljust(11), f"[POT {o.potential}]".ljust(8), f"[R {(o.skills.rank)} M {[m.mastery if m != None else -1 for m in o.skills.masteries]}]".ljust(18), f"M {o.module.type} S {o.module.stage}".ljust(16) if o.module.stage!=None else f"M None".ljust(16), f"{c}TIME: {allDeltas[-1]}")
+		print(o.IMAGE_PATH.ljust(40), f"[NAME: {o.name}]".ljust(26), f"[E{o.promotion} LVL{str(o.level).rjust(2)}]".ljust(11), f"[POT {o.potential}]".ljust(8), f"[R {(o.skills.rank)} M {[m.mastery if m != None else -1 for m in o.skills.masteries]}]".ljust(18), f"M {o.module.type} S {o.module.stage}".ljust(16) if o.module.stage!=None else f"M None".ljust(16), f"[LOVED {o.loved}]".ljust(16), f"{c}TIME: {allDeltas[-1]}")
 	except:
-		# raise
+		raise
 		print(f"{colorama.Fore.LIGHTBLUE_EX} {f}")
 
 json.dump(dmp, open(f"./userdata/out/{dt.now().strftime('%Y-%m-%dT%H-%M')}.json", "w"))

@@ -12,7 +12,7 @@ import difflib
 import gzip
 import pickle
 from datetime import datetime as dt
-from PIL import Image
+# from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
 tsr = pytesseract.pytesseract.tesseract_cmd = "./dep/Tesseract-OCR/tesseract.exe"
@@ -27,7 +27,7 @@ class Operator:
 		self.deltas:list[dict[str,dt]] = []
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
-		# crops / positions
+		# ===crops / positions===
 		# tTracker:TimeTracker = TimeTracker(dt.now())
 		self.prfCropBox:CropBox = CropBox(self.professionAnchor.x, self.professionAnchor.y, self.professionAnchor.size, self.professionAnchor.size, 5)
 		self.nameCropBox:CropBox = self.getNamePosition()
@@ -38,15 +38,18 @@ class Operator:
 		self.potentialCropBox:CropBox = self.getPotentialPosition()
 		self.moduleTypeCropBox:CropBox = self.getModuleTypePosition()
 		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
+		self.favouriteCropBox:CropBox = self.getFavouritePosition()
 		# tTracker.add(Delta(dt.now(), "cropBoxes"))
-		# Image.fromarray(self.moduleStageCropBox.crop(self.original)).show()
-		# help data for name recognition
+		# Image.fromarray(self.favouriteCropBox.crop(self.original)).show()
+
+		# ===help data for name recognition===
 		self.profession:str = self.conjectOperatorProfession()
 		# tTracker.add(Delta(dt.now(), "profession"))
 		self.rarityStars:list[tuple[CropBox,int,int,float]] = []
 		self.rarity:int = self.conjectOperatorRarity()
 		# tTracker.add(Delta(dt.now(), "rarity"))
-		# actual data...
+		
+		# ===actual data...===
 		self.name:str = self.conjectOperatorName(filterNamesByRarityAndProfession(self.rarity, str(self.profession)))
 		# tTracker.add(Delta(dt.now(), "name"))
 		self.id:str = getIdByName(str(self.name))
@@ -61,7 +64,8 @@ class Operator:
 		# tTracker.add(Delta(dt.now(), "skills"))
 		self.module:Module = Module(self.original, self.id, self.moduleStageCropBox, self.moduleTypeCropBox)
 		# tTracker.add(Delta(dt.now(), "module"))
-		self.loved:bool = False # self.conjectLovedStatus()
+		# self.loved:bool = self.conjectFavouriteStatus()
+		self.loved:bool = False
 		self.avatar:str|None = None
 		# print(tTracker.diff())
 
@@ -71,7 +75,7 @@ class Operator:
 			template:cv2.Mat = toGrayscale(cv2.resize(cv2.imread(f"./ref/classes/mask/{c}"), (self.prfCropBox.w,self.prfCropBox.h)))
 			loc:tuple=np.where(cv2.matchTemplate(toGrayscale(cropped), template, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
 			if len(loc[0]) > 0:
-				return re.findall(r"(?<=class_)\w+", c)[0]
+				return re.findall(r"(?<=class_)\w+", c)[0] # type: ignore
 		raise OperatorProfessionConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorName(self, options:list[str]) -> str:
 		if 0 < len(options) < 2: return options[0]
@@ -87,7 +91,7 @@ class Operator:
 		croppedMaskedGray:cv2.Mat = toGrayscale(croppedMasked)
 		stars:list[tuple[int,...]] = []
 		for cnt in cv2.findContours(croppedMaskedGray, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
-			if 50 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
+			if 150 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
 				if len(cnt) < 5: continue
 				(x,y), (MA,ma), angle = cv2.fitEllipse(cnt) # type: ignore
 				if MA / ma < .5: continue
@@ -98,6 +102,8 @@ class Operator:
 			raise OperatorRarityConjectionFailed(self.IMAGE_PATH)
 		return len(stars)
 	def conjectOperatorLevel(self) -> int:
+		# tCrop = int((self.original.shape[0]-self.original.shape[1]/(16/9))/2)
+		# cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.original[tCrop:-tCrop, 0:]))
 		cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.original))
 		mask:cv2.Mat = cv2.threshold(cropped, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore / # tweak thresh if fails
 		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
@@ -107,7 +113,7 @@ class Operator:
 		for r in read["text"]:
 			if len(r) > 0: filtered.append(r)
 		if len(filtered) > 0: return int(filtered[0])
-		raise OperatorLevelConjectionFailed(self.IMAGE_PATH)	
+		raise OperatorLevelConjectionFailed(self.IMAGE_PATH)
 
 	def conjectOperatorPromotionLevel(self) -> int: # maybe enough confidence without matching multiple sizes 
 		data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
@@ -156,6 +162,16 @@ class Operator:
 			return sorted(data, key=lambda x: -x[0])[0][1]
 		raise OperatorPotentialConjectionFailed(self.IMAGE_PATH)
 
+	def conjectFavouriteStatus(self) -> bool:
+		cropped:cv2.Mat = self.favouriteCropBox.crop(self.original)
+		bgr:tuple[cv2.Mat,...] = cv2.split(cropped) # type: ignore
+		yellowMask:cv2.Mat = cv2.bitwise_and(bgr[1],bgr[2])
+		yellowMask:cv2.Mat = cv2.bitwise_xor(yellowMask, bgr[0])
+		yellowMask = cv2.threshold(yellowMask, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		# print()
+		# Image.fromarray(yellowMask).show()
+		return bool(np.sum(yellowMask==255) > 350) # type: ignore
+
 	def getNamePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.x),
@@ -180,7 +196,7 @@ class Operator:
 	def getLevelPosition(self) -> Circle:
 		return Circle(
 			x=int(self.professionAnchor.size*10.8),
-			y=int(self.professionAnchor.size*1.7),
+			y=int(self.professionAnchor.size*1.7+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
 			r=int(0.0781*self.original.shape[0])
 		)
 	def getOperatorPosition(self) -> CropBox:
@@ -221,6 +237,14 @@ class Operator:
 			w=int(self.professionAnchor.size*.5),
 			h=int(self.professionAnchor.size*.5),
 			tolerance=70
+		)
+	def getFavouritePosition(self) -> CropBox:
+		return CropBox(
+			x=int(self.professionAnchor.size*8.68),
+			y=int(self.professionAnchor.size*.1+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
+			w=int(self.professionAnchor.size*.75),
+			h=int(self.professionAnchor.size*.75),
+			tolerance=0
 		)
 
 	def drawAllBounds(self) -> cv2.Mat:
@@ -330,24 +354,27 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 	return all
 def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizees:list[int]=[150, 300]) -> tuple[str,float]|None:
 	cropped:cv2.Mat = region.crop(original)
-	mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-	kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/6), int(mask.shape[1]/10))) # type: ignore
-	mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
-	croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
-	read:dict[str,list[str]] = pytesseract.image_to_data(toGrayscale(croppedMasked), config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
+	croppedArea = cropped.shape[0]*cropped.shape[1]
+	gray:cv2.Mat = toGrayscale(cropped)
+	thresh:cv2.Mat = cv2.threshold(gray, 254, 255, cv2.THRESH_BINARY)[1] # type: ignore
+	labels, stats = cv2.connectedComponentsWithStats(thresh)[1:3]
+	for label in range(1, labels.max()):
+		area = stats[label,cv2.CC_STAT_AREA]
+		if area < 225 or area > croppedArea*.03: labels[labels==label] = 0
+	threshed = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
+	read:dict[str,list[str]] = pytesseract.image_to_data(threshed, config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
 	filteredData:list[str] = []	
 	for r in read["text"]:
-		if len(r) > 2: filteredData.append(r)
-	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.58) # .58
+		if len(r) > .001: filteredData.append(r)
+	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.65) # .58
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 		return (matches1[0], simScore)
-	else:
-		for cs in chunkSizees:
-			res:list[tuple[str, float]] = conjectTextInRegionChunked(original, region, options, cs)
-			if len(res) > 0:
-				return res[0]
-		return None
+	for cs in chunkSizees:
+		res:list[tuple[str, float]] = conjectTextInRegionChunked(original, region, options, cs)
+		if len(res) > 0:
+			return res[0]
+	return None
 
 def load(opId:str) -> Operator:
 	return pickle.load(open(f"./userdata/saves/{opId}.spec", "rb"))
