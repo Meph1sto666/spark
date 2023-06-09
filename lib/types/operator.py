@@ -24,6 +24,7 @@ class Operator:
 	def __init__(self, imagePath:str, profRefData:RefData, promRefData:RefData) -> None:
 		self.IMAGE_PATH:str = imagePath
 		self.original:cv2.Mat = cv2.imread(self.IMAGE_PATH, cv2.IMREAD_UNCHANGED)
+		self.imgInf:tuple[np.dtype[np.generic], Tuple[int, ...]] = (self.original.dtype, self.original.shape)
 		self.deltas:list[dict[str,dt]] = []
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
@@ -32,7 +33,7 @@ class Operator:
 		self.prfCropBox:CropBox = CropBox(self.professionAnchor.x, self.professionAnchor.y, self.professionAnchor.size, self.professionAnchor.size, 5)
 		self.nameCropBox:CropBox = self.getNamePosition()
 		self.rarityCropBox:CropBox = self.getRarityPosition()
-		self.levelCropBox:Circle = self.getLevelPosition()
+		self.levelCropBox:CropBox = self.getLevelPosition()
 		self.promotionCropBox:CropBox = CropBox(self.promotionAnchor.x, self.promotionAnchor.y, self.promotionAnchor.size, self.promotionAnchor.size, 5)
 		# self.operatorCropBox:CropBox = self.getOperatorPosition()
 		self.potentialCropBox:CropBox = self.getPotentialPosition()
@@ -40,7 +41,8 @@ class Operator:
 		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
 		self.favouriteCropBox:CropBox = self.getFavouritePosition()
 		# tTracker.add(Delta(dt.now(), "cropBoxes"))
-		# Image.fromarray(self.favouriteCropBox.crop(self.original)).show()
+		# Image.fromarray(self.rarityCropBox.crop(self.original)).show()
+
 
 		# ===help data for name recognition===
 		self.profession:str = self.conjectOperatorProfession()
@@ -74,8 +76,7 @@ class Operator:
 		for c in os.listdir("./ref/classes/alpha/"):
 			template:cv2.Mat = toGrayscale(cv2.resize(cv2.imread(f"./ref/classes/mask/{c}"), (self.prfCropBox.w,self.prfCropBox.h)))
 			loc:tuple=np.where(cv2.matchTemplate(toGrayscale(cropped), template, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
-			if len(loc[0]) > 0:
-				return re.findall(r"(?<=class_)\w+", c)[0] # type: ignore
+			if len(loc[0]) > 0: return re.findall(r"(?<=class_)\w+", c)[0] # type: ignore
 		raise OperatorProfessionConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorName(self, options:list[str]) -> str:
 		if 0 < len(options) < 2: return options[0]
@@ -84,13 +85,17 @@ class Operator:
 		raise OperatorNameConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorRarity(self) -> int:
 		cropped:cv2.Mat = self.rarityCropBox.crop(self.original)
-		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
-		kernel:cv2.Mat = cv2.getStructuringElement(cv2.MORPH_RECT, (int(mask.shape[0]/9), int(mask.shape[1]/9))) # type: ignore
-		mask2:cv2.Mat = cv2.bitwise_not(cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)) # type: ignore
-		croppedMasked:cv2.Mat = cv2.bitwise_or(cropped, cropped, mask=cv2.bitwise_and(mask,mask2)) # mask the cropped Image
-		croppedMaskedGray:cv2.Mat = toGrayscale(croppedMasked)
+		gray:cv2.Mat = toGrayscale(cropped)
+		thresh:cv2.Mat = cv2.threshold(gray, 254, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		croppedArea:int = cropped.shape[0]*cropped.shape[1]
+		labels, stats = cv2.connectedComponentsWithStats(thresh)[1:3]
+		for label in range(1, labels.max()):
+			area:int = stats[label,cv2.CC_STAT_AREA]
+			if area < croppedArea*.01 or area > croppedArea*.05: labels[labels==label] = 0
+		threshed:cv2.Mat = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
+		# Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
 		stars:list[tuple[int,...]] = []
-		for cnt in cv2.findContours(croppedMaskedGray, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
+		for cnt in cv2.findContours(threshed, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
 			if 150 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
 				if len(cnt) < 5: continue
 				(x,y), (MA,ma), angle = cv2.fitEllipse(cnt) # type: ignore
@@ -98,57 +103,38 @@ class Operator:
 				stars.append(cnt) # type: ignore
 		for star in stars:
 			self.rarityStars.append((CropBox(*cv2.boundingRect(star)),x,y,angle)) # type: ignore
-		if len(stars) < 1 or len(stars) > 6:
-			raise OperatorRarityConjectionFailed(self.IMAGE_PATH)
-		return len(stars)
+		if 0 < len(stars) < 7:
+			return len(stars)
+		raise OperatorRarityConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorLevel(self) -> int:
-		# tCrop = int((self.original.shape[0]-self.original.shape[1]/(16/9))/2)
-		# cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.original[tCrop:-tCrop, 0:]))
-		cropped:cv2.Mat = toGrayscale(self.levelCropBox.crop(self.original))
-		mask:cv2.Mat = cv2.threshold(cropped, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore / # tweak thresh if fails
-		croppedMasked:cv2.Mat = cv2.bitwise_and(cropped, cropped, mask=mask) # mask the cropped Image
-		# Image.fromarray(croppedMasked).save(f"./preprocessed/preprocess_{self.name}.png","png")
-		read:dict[str,list[str]] = pytesseract.image_to_data(croppedMasked, config="--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789", output_type=pytesseract.Output.DICT) # type: ignore
+		cropped:cv2.Mat = self.levelCropBox.crop(self.original)
+		gray:cv2.Mat = toGrayscale(cropped)
+		croppedArea:int = gray.shape[0]*gray.shape[1]
+		thresh:cv2.Mat = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		labels, stats = cv2.connectedComponentsWithStats(thresh)[1:3]
+		for label in range(1, labels.max()):
+			area:int = stats[label,cv2.CC_STAT_AREA]
+			if area < croppedArea*.05: labels[labels==label] = 0
+		threshed:cv2.Mat = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
+		threshed = cv2.GaussianBlur(threshed, (5,5), 10) # type: ignore
+		# Image.fromarray(threshed).save(f"./preprocessed/preprocess_{self.name}.png","png")
+		read:dict[str,list[str]] = pytesseract.image_to_data(cv2.bitwise_not(threshed), config="--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789", output_type=pytesseract.Output.DICT) # type: ignore
 		filtered:list[str] = []
 		for r in read["text"]:
 			if len(r) > 0: filtered.append(r)
 		if len(filtered) > 0: return int(filtered[0])
 		raise OperatorLevelConjectionFailed(self.IMAGE_PATH)
 
-	def conjectOperatorPromotionLevel(self) -> int: # maybe enough confidence without matching multiple sizes 
-		# data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
-		# streak = 0;
-		target:cv2.Mat = toGrayscale(cv2.threshold(self.original, 150, 255, cv2.THRESH_BINARY)[1]) # type: ignore
-		self.promotionCropBox.tolerance = 20
-		targetCropped:cv2.Mat = self.promotionCropBox.crop(target)
-		for e in os.listdir("./ref/elite/"):
-			refImg:cv2.Mat = cv2.imread(f"./ref/elite/{e}", cv2.IMREAD_UNCHANGED)
-			refGray:cv2.Mat = toGrayscale(cv2.bitwise_and(refImg, refImg, mask=refImg[:,:,3]))
-			
-			refGrayResized:cv2.Mat = cv2.resize(refGray, (self.promotionAnchor.size,self.promotionAnchor.size))
-			res:cv2.Mat = cv2.matchTemplate(targetCropped, refGrayResized, cv2.TM_CCOEFF_NORMED)
-			loc:tuple[cv2.Mat, ...] = np.where(res >= .7) # type: ignore
-			if len(loc[0]) > 0:
-				return int(os.path.splitext(e)[0])			
-			# for size in range(self.promotionAnchor.size-5,self.promotionAnchor.size+5):
-
-				# if len(data) > 0 and streak < 0: break
-				# refGrayResized:cv2.Mat = cv2.resize(refGray, (size,size))
-				# res:cv2.Mat = cv2.matchTemplate(targetCropped, refGrayResized, cv2.TM_CCOEFF_NORMED)
-				# loc:tuple[cv2.Mat, ...] = np.where(res >= .7) # type: ignore
-				# if len(loc[0]) > 0:
-				# 	data.append((float(np.max(res)), int(os.path.splitext(e)[0]))) # type: ignore
-				# 	streak = 7
-				# else: streak-=1
-		# if len(data) > 0:
-		# 	return sorted(data, key=lambda x: -x[0])[0][1]
+	def conjectOperatorPromotionLevel(self) -> int:
+		target:cv2.Mat = toGrayscale(cv2.threshold(self.original, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore
+		cropped:cv2.Mat = self.promotionCropBox.crop(target)
+		cArea:int = cropped.shape[0]*cropped.shape[1]
+		promotionsPxs:list[float] = [.03*cArea, .081*cArea, .135*cArea]
+		for pxi in range(len(promotionsPxs)):
+			if np.count_nonzero(cropped) < promotionsPxs[pxi]: return pxi # type: ignore
 		raise OperatorPromotionConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorPotential(self) -> int:
-		# data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
-		# streak = 0;
-		# self.potentialCropBox.tolerance = 10
 		target:cv2.Mat = self.potentialCropBox.crop(self.original)
-		# bgr:cv2.Mat = cv2.split(target) # type: ignore / cv2.bitwise_and(target,target,mask=target[:,:,2])
 		targetCropped:cv2.Mat = cv2.threshold(cv2.split(target)[0], 230, 255, cv2.THRESH_BINARY)[1] # type: ignore
 		cArea:int = targetCropped.shape[0]*targetCropped.shape[1]
 		potPxlThreshs:list[int] = [int(.025*cArea), int(.045*cArea), int(.065*cArea), int(.08*cArea), int(.095*cArea), int(.15*cArea)] # 1000, 2000, 3000
@@ -156,24 +142,6 @@ class Operator:
 		for pti in range(len(potPxlThreshs)):
 			if np.count_nonzero(targetCropped) < potPxlThreshs[pti]: # type: ignore
 				return pti+1
-		# Image.fromarray(nBlueMask).save(f"./preprocessed/ref{self.name}.png") # cv2.bitwise_and(targetCropped, targetCropped, mask=nBlueMask)
-		# for p in os.listdir("./ref/potential/")[::-1]:
-		# 	refImg:cv2.Mat = cv2.imread(f"./ref/potential/{p}", cv2.IMREAD_UNCHANGED)
-		# 	refImg:cv2.Mat = cv2.threshold(refImg, 230, 255, cv2.THRESH_BINARY)[1] # type: ignore
-		# 	refBgr:cv2.Mat = cv2.split(refImg) # type: ignore
-		# 	refGray = cv2.bitwise_and(refBgr[0],refBgr[0],mask=refImg[:,:,3])
-		# 	# refGray:cv2.Mat = cv2.threshold(cv2.bitwise_or(*refBgr[1:], mask=refImg[:,:,3]), 254, 255, cv2.THRESH_BINARY)[1]
-		# 	for size in range(self.potentialCropBox.h-5,self.potentialCropBox.h+5):
-		# 		if len(data) > 0 and streak < 0: break
-		# 		refGrayResized:cv2.Mat = cv2.resize(refGray, (size, size))
-		# 		res:cv2.Mat = cv2.matchTemplate(targetCropped, refGrayResized, cv2.TM_CCOEFF_NORMED)
-		# 		loc:tuple[cv2.Mat, ...] = np.where(res >= .8) # type: ignore
-		# 		if len(loc[0]) > 0:
-		# 			data.append((float(np.max(res)), int(os.path.splitext(p)[0]))) # type: ignore
-		# 			streak = 4
-		# 		else: streak-=1
-		# if len(data) > 0:
-		# 	return sorted(data, key=lambda x: -x[0])[0][1]
 		raise OperatorPotentialConjectionFailed(self.IMAGE_PATH)
 
 	def conjectFavouriteStatus(self) -> bool:
@@ -188,41 +156,28 @@ class Operator:
 
 	def getNamePosition(self) -> CropBox:
 		return CropBox(
-			x=int(self.professionAnchor.x),
-			y=int(self.professionAnchor.y-1.5*self.professionAnchor.size),
-			w=int(7*self.professionAnchor.size), # 7
-			h=int(1.5*self.professionAnchor.size),
-			tolerance=5
+			x=int(self.professionAnchor.size*.2),
+			# y=int(self.professionAnchor.size*5.5+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
+			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/2)*.8),
+			w=int(self.professionAnchor.size*5.8), # 7
+			h=int(self.professionAnchor.size*1.2),
+			tolerance=10
 		)
 	def getRarityPosition(self) -> CropBox:
 		return CropBox(
-			x=int(self.professionAnchor.x),
-			y=int(self.professionAnchor.y-1.85*self.professionAnchor.size),
-			w=int(1.7*self.professionAnchor.size),
-			h=int(.28*self.professionAnchor.size),
+			x=int(self.professionAnchor.x*1),
+			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/4)*.73),
+			w=int(self.professionAnchor.size*1.7),
+			h=int(self.professionAnchor.size*.28),
 			tolerance=5
 		)
-	def getLevelPosition(self) -> Circle:
-		cb = Circle(
-			x=int(self.professionAnchor.size*10.8),
-			y=int(self.professionAnchor.size*1.7+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
-			r=int(0.0781*self.original.shape[0])
+	def getLevelPosition(self) -> CropBox:
+		return CropBox(
+			x=int(self.promotionAnchor.x+self.promotionAnchor.size*0.05),
+			y=int((self.promotionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/2)*.5),
+			w=int(self.promotionAnchor.size),
+			h=int(self.promotionAnchor.size*.75)
 		)
-		return cb
-		# cb = CropBox(
-		# 	x=int(self.professionAnchor.size*10.1),
-		# 	y=int(self.professionAnchor.size*.9+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
-		# 	w=int(self.professionAnchor.size*1.5),
-		# 	h=int(self.professionAnchor.size*1.5)
-		# )
-		# adThresh = cv2.adaptiveThreshold(toGrayscale(cb.crop(self.original)), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 4)
-		# # circles:cv2.Mat|None = cv2.HoughCircles(toGrayscale(cb.crop(self.original)), cv2.HOUGH_GRADIENT, 1, 100, param1=255, param2=100, minRadius=int(cb.w*.5), maxRadius=int(cb.w*1.5)) # type: ignore
-		# circles:cv2.Mat|None = cv2.HoughCircles(adThresh, cv2.HOUGH_GRADIENT, 1, 10, param1=255, param2=25, minRadius=int(cb.w*.4), maxRadius=int(cb.w*.5)) # type: ignore
-		# i:cv2.Mat = cb.crop(self.original)
-		# for f in np.round(circles[0,]):
-		# 	cv2.circle(i, (int(f[1]),int(f[2])), int(f[0]), (0,255,0), 2)
-		# Image.fromarray(i).save(f"./preprocessed/{(self.IMAGE_PATH[-10])}.png")
-		# return Circle(*np.round(circles[0,])[0]) # type: ignore
 
 	def getOperatorPosition(self) -> CropBox:
 		return CropBox(
@@ -278,23 +233,26 @@ class Operator:
 		starPos:list[tuple[int,...]] = [s[0].add([self.rarityCropBox.toTuple()]) for s in self.rarityStars]
 		for p in range(len(starPos)):
 			drawBoundingBox(cpy, *starPos[p], text=str(p))
-		# drawBoundingBox(cpy, *self.nameCropBox.toTuple(), text=self.id, inset=True)
-		# drawBoundingBox(cpy, *self.levelCropBox.getBoundingBox().toTuple(), text=f"LVL {self.level}")
-		# drawBoundingBox(cpy, *self.promotionCropBox.toTuple(), text=f"E {self.promotion}", inset=True)
-		# drawBoundingBox(cpy, *self.potentialCropBox.toTuple(), text=f"POT {self.potential}")
-		# drawBoundingBox(cpy, *self.skills.sb.toTuple(), text=f"R {self.skills.rank}")
-		# for m in self.skills.masteries:
-		# 	if m==None: continue
-		# 	if m.masteryCropBox==None: continue
-		# 	drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
-		# if self.module.foundTypeCropBox != None:
-		# 	drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
+		drawBoundingBox(cpy, *self.nameCropBox.toTuple(), text=self.id, inset=True)
+		drawBoundingBox(cpy, *self.levelCropBox.toTuple(), text=f"LVL {self.level}")
+		drawBoundingBox(cpy, *self.promotionCropBox.toTuple(), text=f"E {self.promotion}", inset=True)
+		drawBoundingBox(cpy, *self.potentialCropBox.toTuple(), text=f"POT {self.potential}")
+		drawBoundingBox(cpy, *self.skills.sb.toTuple(), text=f"R {self.skills.rank}")
+		for m in self.skills.masteries:
+			if m==None: continue
+			if m.masteryCropBox==None: continue
+			drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
+		if self.module.foundTypeCropBox != None:
+			drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
 		return cpy
 
 	def save(self, folder:str) -> None:
 		# del self.original
 		self.original = gzip.compress(self.original.tobytes()) # type: ignore
 		pickle.dump(self, open((folder + "/" if not folder.endswith("/") else folder) + self.id + ".spec", "wb"),protocol=pickle.HIGHEST_PROTOCOL)
+		# self.recreateImg()
+	def recreateImg(self) -> None:
+		self.original = np.frombuffer(gzip.decompress(self.original), dtype=self.imgInf[0]).reshape(self.imgInf[1]) # type: ignore
 
 	def toJson(self) -> dict[str, str | None | int | list[int] | dict[str, str | int | None]]:
 		data:dict[str, str | None | int | list[int] | dict[str, str | int | None]] = {
@@ -385,12 +343,13 @@ def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chu
 	labels, stats = cv2.connectedComponentsWithStats(thresh)[1:3]
 	for label in range(1, labels.max()):
 		area = stats[label,cv2.CC_STAT_AREA]
-		if area < croppedArea*.001 or area > croppedArea*.03: labels[labels==label] = 0
+		if area < croppedArea*.002 or area > croppedArea*.04: labels[labels==label] = 0 # .001, .035
 	threshed = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
 	read:dict[str,list[str]] = pytesseract.image_to_data(threshed, config=tess_config, output_type=pytesseract.Output.DICT) # type: ignore
 	filteredData:list[str] = []	
 	for r in read["text"]:
-		if len(r) > 2: filteredData.append(r)
+		if len(r) > 1: filteredData.append(r)
+	# Image.fromarray(threshed).save(f"./preprocessed/{'_'.join(options)}.png")
 	matches1:list[str] = difflib.get_close_matches("".join([f.capitalize() for f in filteredData]), options, n=1000, cutoff=.65) # .58
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
@@ -402,4 +361,6 @@ def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chu
 	return None
 
 def load(opId:str) -> Operator:
-	return pickle.load(open(f"./userdata/saves/{opId}.spec", "rb"))
+	op:Operator = pickle.load(open(f"./userdata/saves/{opId}.spec", "rb"))
+	op.recreateImg()
+	return op
