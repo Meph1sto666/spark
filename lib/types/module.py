@@ -6,23 +6,27 @@ import pytesseract # type: ignore
 import cv2
 
 class Module:
-	def __init__(self, img:cv2.Mat, opId:str, stageCropBox:CropBox, typeCropBox:CropBox) -> None:
+	def __init__(self, img:cv2.Mat, opId:str, opProm:int, stageCropBox:CropBox, typeCropBox:CropBox) -> None:
+		self.tTracker:TimeTracker = TimeTracker(dt.now())
 		self.OP_ID:str = opId
 		self.stageCropBox:CropBox = stageCropBox
 		self.typeCropBox:CropBox = typeCropBox
 
-		self.moduleOptions:list[dict[str,str]] = dict(json.load(open("./ref/operators.json"))).get(opId,{}).get("modules", [])
+		self.moduleOptions:list[dict[str,str]] = dict(json.load(open("./ref/operators.json"))).get(opId,{}).get("modules", []) if opProm > 1 else []
 		self.stage:int|None = None
 		self.type:str|None = None
 		self.foundTypeCropBox:CropBox|None = None
 		# self.foundStateCropBox:CropBox|None
 		if len(self.moduleOptions) > 0:
 			self.stage = self.conjectModuleStage(img)
+			self.tTracker.add(Delta(dt.now(), "stage"))
 			if self.stage != None:
 				if len(self.moduleOptions) == 1:
 					self.type = self.moduleOptions[0].get("typeName")
 				else:
 					self.type = self.conjectModuleType(img)
+				self.tTracker.add(Delta(dt.now(), "type"))
+				
 			
 	def conjectModuleStage(self, img:cv2.Mat) -> int | None:
 		stageImg:cv2.Mat = self.stageCropBox.crop(img)
@@ -41,7 +45,7 @@ class Module:
 			refGray:cv2.Mat = toGrayscale(refImg)
 			refThresh:cv2.Mat = cv2.threshold(refGray, 130, 255, cv2.THRESH_BINARY)[1] # type: ignore
 			refMasked:cv2.Mat = cv2.bitwise_and(refThresh, refThresh, mask=refImg[:,:,3])
-			for s in range(self.typeCropBox.w-5, self.typeCropBox.w+5):
+			for s in range(self.typeCropBox.w/2, self.typeCropBox.w):
 				if len(data) > 0 and streak < 0: break
 				refResized:cv2.Mat = cv2.resize(refMasked, (s,s))
 				res:cv2.Mat = cv2.matchTemplate(imgThresh, refResized, cv2.TM_CCOEFF_NORMED)

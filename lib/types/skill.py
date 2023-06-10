@@ -3,13 +3,13 @@ from lib.types.errors import *
 from lib.types.cropbox import *
 import numpy as np
 import cv2
+from PIL import Image
 
 class Skill:
 	def __init__(self, img:cv2.Mat, box:CropBox) -> None:
 		self.skillCropBox:CropBox = box
 		self.masteryCropBox:CropBox|None = None
 		self.mastery:int = self.conjectSkillMasteryLevel(img)
-		# self.selected:bool = self.conjectSkillSelection()
 
 	def conjectSkillMasteryLevel(self, img:cv2.Mat) -> int:
 		cropped:cv2.Mat = self.skillCropBox.crop(img)
@@ -21,7 +21,7 @@ class Skill:
 		for m in files:
 			refImg:cv2.Mat = cv2.imread(f"./ref/mastery/{m}")
 			refGray:cv2.Mat = toGrayscale(refImg)
-			for s in range(int(self.skillCropBox.w/5)-5, int(self.skillCropBox.w/5)+5):
+			for s in range(int(self.skillCropBox.w/2), int(self.skillCropBox.w)):
 				refResized:cv2.Mat = cv2.resize(refGray, (s,s))
 				res:cv2.Mat = cv2.matchTemplate(imgThresh, refResized, cv2.TM_CCOEFF_NORMED)
 				loc:tuple[cv2.Mat, ...] = np.where(res >= .8) # type: ignore
@@ -35,47 +35,34 @@ class Skill:
 		self.masteryCropBox = srt[2]
 		return srt[1]
 
-	# def conjectSkillSelection(self) -> bool:
-	# 	cropped:cv2.Mat = self.skillCropBox.crop(self.ORIGINAL)
-	# 	rgMask:cv2.Mat = cv2.bitwise_not(*cv2.split(cropped)[1:3])
-	# 	imgMasked:cv2.Mat = cv2.bitwise_and(cropped,cropped, mask=rgMask)
-	# 	imgGray:cv2.Mat = cv2.split(imgMasked)[0]
-	# 	imgThresh:cv2.Mat = cv2.threshold(imgGray, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore
-	# 	# Image.fromarray(imgThresh).show()
-	# 	contours = cv2.findContours(imgThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
-	# 	filtered = list(filter(lambda c: cv2.contourArea(c) > 100, contours))
-	# 	print(len(contours))
-	# 	for c in filtered:
-	# 		# approx = cv2.approxPolyDP(c, 0.01*cv2.arcLength(c, True), True)
-	# 		# if len(approx) == 3:
-	# 		drawBoundingBox(cropped, *cv2.boundingRect(c))
-	# 	if len(filtered) >0:
-	# 		Image.fromarray(cropped).show()
-	# 	return False
-
 class Skills:
-	def __init__(self, img:cv2.Mat, skillBox:SkillBox, rarity:int) -> None:
-		self.sb:SkillBox = skillBox
+	def __init__(self, img:cv2.Mat, promAnchor:RefData, rarity:int) -> None:
+		self.sb:CropBox = self.getRankPos(promAnchor, img)
 		self.rank:int = self.conjectSkillRank(img)
 		self.masteries:list[Skill|None] = []
+
 		amount = 0
 		if rarity > 5: amount:int = 3 
 		elif rarity > 3: amount = 2
 		elif rarity > 2: amount = 1
 		if self.rank == 7:
-			self.masteries = [Skill(img, s) for s in skillBox.getSkillCropBoxes(amount)]
+			for s in range(amount):
+				skill = Skill(img, self.getMasteriesPos(promAnchor,img,s))
+				self.masteries.append(skill)
+				# Image.fromarray(skill.skillCropBox.crop(img)).save(f"./preprocessed/preprocess_skill_{s}.png","png")
+			# self.masteries = [Skill(img, self.getMasteriesPos(promAnchor,img,s)) for s in range(amount)]
 
 	def conjectSkillRank(self, img:cv2.Mat) -> int:
-		cropped:cv2.Mat = self.sb.cropRank(img)
+		cropped:cv2.Mat = self.sb.crop(img)
 		imgGray:cv2.Mat = toGrayscale(cropped)
-		# imgThresh:cv2.Mat = cv2.threshold(imgGray, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		# Image.fromarray(imgGray).save(f"./preprocessed/preprocess_skill_rank.png","png")
 		data:list[tuple[float,int,CropBox]] = []
 		streak = 0
 		for m in os.listdir("./ref/rank/"):
 			refImg:cv2.Mat = cv2.imread(f"./ref/rank/{m}", cv2.IMREAD_UNCHANGED)
 			refGray:cv2.Mat = toGrayscale(refImg)
 			refMasked:cv2.Mat = cv2.bitwise_and(refGray, refGray, mask=refImg[:,:,3])
-			for s in range(int(self.sb.h/3)-5, int(self.sb.h/3)+5):
+			for s in range(int(self.sb.h*.9), int(self.sb.h)):
 				refResized:cv2.Mat = cv2.resize(refMasked, (s,s))
 				res:cv2.Mat = cv2.matchTemplate(imgGray, refResized, cv2.TM_CCOEFF_NORMED)
 				loc:tuple[cv2.Mat, ...] = np.where(res >= .7) # type: ignore
@@ -92,3 +79,21 @@ class Skills:
 
 	def isMasteryable(self) -> bool:
 		return self.rank > 6
+
+	def getRankPos(self, anchor:RefData, img:cv2.Mat) -> CropBox:
+		return CropBox(
+			x=int(anchor.x*1.35),
+			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.74),
+			w=int(anchor.size*1),
+			h=int(anchor.size*.26),
+			tolerance=0 # NOTE: maybe 5
+		)
+
+	def getMasteriesPos(self, anchor:RefData, img:cv2.Mat, i:int) -> CropBox:
+		return CropBox(
+			x=int(anchor.x+anchor.size*i*.925),
+			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.625),
+			w=int(anchor.size*.35), # w = h to prevent errors
+			h=int(anchor.size*.35), # w = h to prevent errors
+			tolerance=0
+		)

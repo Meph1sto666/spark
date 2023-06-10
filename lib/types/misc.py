@@ -1,6 +1,8 @@
 import os
 import json
 from datetime import datetime as dt
+
+import colorama
 from lib.types.errors import *
 import cv2
 from lib.types.cropbox import *
@@ -64,8 +66,9 @@ class TimeTracker():
 	def add(self, d:Delta) -> None:
 		self.deltas.append(d)
 
-	def diff(self) -> list[tuple[str|None, float]]:
-		return [(self.deltas[d].description, (self.deltas[d].TIME - self.START_TIME if d == 0 else self.deltas[d].TIME - self.deltas[d-1].TIME).total_seconds()) for d in range(len(self.deltas))]
+	def diff(self) -> dict[str, float]:#list[tuple[str|None, float]]:
+		# return [(self.deltas[d].description, (self.deltas[d].TIME - self.START_TIME if d == 0 else self.deltas[d].TIME - self.deltas[d-1].TIME).total_seconds()) for d in range(len(self.deltas))]
+		return dict([(self.deltas[d].description, (self.deltas[d].TIME - self.START_TIME if d == 0 else self.deltas[d].TIME - self.deltas[d-1].TIME).total_seconds()) for d in range(len(self.deltas))])
 
 # for i in range(len(data['text'])):
 #     x:int = int(data['left'][i])
@@ -84,3 +87,33 @@ def findLetters(cropped:cv2.Mat, minArea:int=0, maxArea:int=10000) -> list[CropB
 		if not minArea < cv2.contourArea(cnt) < maxArea: continue # type: ignore
 		cropBoxes.append(CropBox(*cv2.boundingRect(cnt), tolerance=0)) # type: ignore
 	return cropBoxes
+
+def timeToColor(t:float) -> str:
+	c:str = colorama.Fore.RESET
+	if   t < .1: c = colorama.Fore.WHITE
+	elif t < .2: c = colorama.Fore.LIGHTMAGENTA_EX
+	elif t < .3: c = colorama.Fore.MAGENTA
+	elif t < .4: c = colorama.Fore.LIGHTCYAN_EX
+	elif t < .5: c = colorama.Fore.CYAN
+	elif t < .6: c = colorama.Fore.LIGHTGREEN_EX
+	elif t < .7: c = colorama.Fore.GREEN
+	elif t < .8: c = colorama.Fore.LIGHTYELLOW_EX
+	elif t < .9: c = colorama.Fore.YELLOW
+	elif t < 1.: c = colorama.Fore.LIGHTRED_EX
+	else: c = colorama.Fore.RED
+	return c
+
+def timeToColorPrec(t:float) -> str:
+	c:str = colorama.Fore.RESET
+	if   t < .050: c = colorama.Fore.WHITE
+	elif t < .100: c = colorama.Fore.LIGHTMAGENTA_EX
+	elif t < .150: c = colorama.Fore.MAGENTA
+	elif t < .200: c = colorama.Fore.LIGHTCYAN_EX
+	elif t < .250: c = colorama.Fore.CYAN
+	elif t < .300: c = colorama.Fore.LIGHTGREEN_EX
+	elif t < .350: c = colorama.Fore.GREEN
+	elif t < .400: c = colorama.Fore.LIGHTYELLOW_EX
+	elif t < .450: c = colorama.Fore.YELLOW
+	elif t < .500: c = colorama.Fore.LIGHTRED_EX
+	else: c = colorama.Fore.RED
+	return c

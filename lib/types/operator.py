@@ -29,7 +29,7 @@ class Operator:
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
 		# ===crops / positions===
-		# tTracker:TimeTracker = TimeTracker(dt.now())
+		self.tTracker:TimeTracker = TimeTracker(dt.now())
 		self.prfCropBox:CropBox = CropBox(self.professionAnchor.x, self.professionAnchor.y, self.professionAnchor.size, self.professionAnchor.size, 5)
 		self.nameCropBox:CropBox = self.getNamePosition()
 		self.rarityCropBox:CropBox = self.getRarityPosition()
@@ -40,36 +40,36 @@ class Operator:
 		self.moduleTypeCropBox:CropBox = self.getModuleTypePosition()
 		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
 		self.favouriteCropBox:CropBox = self.getFavouritePosition()
-		# tTracker.add(Delta(dt.now(), "cropBoxes"))
+		self.tTracker.add(Delta(dt.now(), "cropBoxes"))
 		# Image.fromarray(self.rarityCropBox.crop(self.original)).show()
 
 
 		# ===help data for name recognition===
 		self.profession:str = self.conjectOperatorProfession()
-		# tTracker.add(Delta(dt.now(), "profession"))
+		self.tTracker.add(Delta(dt.now(), "prof"))
 		self.rarityStars:list[tuple[CropBox,int,int,float]] = []
 		self.rarity:int = self.conjectOperatorRarity()
-		# tTracker.add(Delta(dt.now(), "rarity"))
+		self.tTracker.add(Delta(dt.now(), "rarity"))
 		
 		# ===actual data...===
 		self.name:str = self.conjectOperatorName(filterNamesByRarityAndProfession(self.rarity, str(self.profession)))
-		# tTracker.add(Delta(dt.now(), "name"))
+		self.tTracker.add(Delta(dt.now(), "name"))
 		self.id:str = getIdByName(str(self.name))
-		# tTracker.add(Delta(dt.now(), "id"))
+		self.tTracker.add(Delta(dt.now(), "id"))
 		self.level:int = self.conjectOperatorLevel()
-		# tTracker.add(Delta(dt.now(), "level"))
+		self.tTracker.add(Delta(dt.now(), "level"))
 		self.promotion:int = self.conjectOperatorPromotionLevel()
-		# tTracker.add(Delta(dt.now(), "prom"))
+		self.tTracker.add(Delta(dt.now(), "prom"))
 		self.potential:int = self.conjectOperatorPotential()
-		# tTracker.add(Delta(dt.now(), "pot"))
-		self.skills:Skills = Skills(self.original, self.getSkillsPosition(), self.rarity)
-		# tTracker.add(Delta(dt.now(), "skills"))
-		self.module:Module = Module(self.original, self.id, self.moduleStageCropBox, self.moduleTypeCropBox)
-		# tTracker.add(Delta(dt.now(), "module"))
-		# self.loved:bool = self.conjectFavouriteStatus()
-		self.loved:bool = False
+		self.tTracker.add(Delta(dt.now(), "pot"))
+		self.skills:Skills = Skills(self.original, self.promotionAnchor, self.rarity)
+		self.tTracker.add(Delta(dt.now(), "skills"))
+		self.module:Module = Module(self.original, self.id, self.promotion, self.moduleStageCropBox, self.moduleTypeCropBox)
+		self.tTracker.add(Delta(dt.now(), "module"))
+		self.loved:bool = self.conjectFavouriteStatus()
+		self.tTracker.add(Delta(dt.now(), "fav"))
 		self.avatar:str|None = None
-		# print(tTracker.diff())
+		# print(self.tTracker.diff())
 
 	def conjectOperatorProfession(self) -> str:
 		cropped:cv2.Mat = self.prfCropBox.crop(self.original)
@@ -150,16 +150,14 @@ class Operator:
 		yellowMask:cv2.Mat = cv2.bitwise_and(bgr[1],bgr[2])
 		yellowMask:cv2.Mat = cv2.bitwise_xor(yellowMask, bgr[0])
 		yellowMask = cv2.threshold(yellowMask, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
-		# print()
-		# Image.fromarray(yellowMask).show()
 		return bool(np.sum(yellowMask==255) > 350) # type: ignore
 
 	def getNamePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.size*.2),
 			# y=int(self.professionAnchor.size*5.5+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
-			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/2)*.8),
-			w=int(self.professionAnchor.size*5.8), # 7
+			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/4)*.8),
+			w=int(self.professionAnchor.size*5), # 5.8 <- 7
 			h=int(self.professionAnchor.size*1.2),
 			tolerance=10
 		)
@@ -194,14 +192,14 @@ class Operator:
 			h=int(self.promotionAnchor.size*1.1),
 			tolerance=20
 		)	
-	def getSkillsPosition(self) -> SkillBox:
-		return SkillBox(
-			x=int(self.promotionAnchor.x*1),
-			y=int(self.promotionAnchor.y*1.52),
-			w=int(self.promotionAnchor.size*3.81),
-			h=int(self.promotionAnchor.size*.77),
-			tolerance=10
-		)
+	# def getSkillsPosition(self) -> SkillBox:
+	# 	return SkillBox(
+	# 		x=int(self.promotionAnchor.x*1),
+	# 		y=int(self.promotionAnchor.y*1.52),
+	# 		w=int(self.promotionAnchor.size*3.81),
+	# 		h=int(self.promotionAnchor.size*.77),
+	# 		tolerance=10
+	# 	)
 	def getModuleTypePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.promotionAnchor.x*1.21),
