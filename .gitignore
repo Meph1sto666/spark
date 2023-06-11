@@ -7,3 +7,5 @@ __pycache__
 /userdata
 /preprocessed
 /final
+/.vscode
+/sphinx

@@ -21,11 +21,40 @@ tessOnlyNumbers = r"--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789"
 names:list[str] = open("./ref/operatornames.txt","r").read().split("\n")
 
 class Operator:
+	"""Representation of an Arknights operator with all important meta data
+ 
+		Attributes:
+			IMAGE_PATH (str): Path to target image
+			original (cv2.Mat): Image as np array (BGRA)
+			imginf (tuple[np.dtype[np.generic], Tuple[int, ...]]): Numpy array data (dtype, shape)
+			
+			professionAnchor (RefData): Profession/Operator class reference data
+			promotionAnchor (RefData): Promotion reference data
+			tTracker (TimeTracker): Speed measurment
+			
+			prfCropBox (CropBox): Cropbox for operator class
+			nameCropBox (CropBox): Cropbox for operator name
+			rarityCropBox (CropBox): Cropbox for operator rarity
+			levelCropBox (CropBox): Cropbox for operator level
+			promotionCropBox (CropBox): Cropbox for operator promotion level
+			potentialCropBox (CropBox): Cropbox for operator potential
+			moduleTypeCropBox (CropBox): Cropbox for operator module type
+			moduleStageCropBox (CropBox): Cropbox for operator module stage
+			favouriteCropBox (CropBox): Cropbox for operator favourite selector
+
+			
+	"""
 	def __init__(self, imagePath:str, profRefData:RefData, promRefData:RefData) -> None:
+		"""_summary_
+
+		Args:
+			imagePath (str): _description_
+			profRefData (RefData): _description_
+			promRefData (RefData): _description_
+		"""
 		self.IMAGE_PATH:str = imagePath
 		self.original:cv2.Mat = cv2.imread(self.IMAGE_PATH, cv2.IMREAD_UNCHANGED)
 		self.imgInf:tuple[np.dtype[np.generic], Tuple[int, ...]] = (self.original.dtype, self.original.shape)
-		self.deltas:list[dict[str,dt]] = []
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
 		# ===crops / positions===
@@ -272,6 +301,17 @@ class Operator:
 		return data
 
 def getProfessionReferenceData(original:cv2.Mat, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
+	"""Creates profession reference data for an image
+
+	Args:
+		original (cv2.Mat): Target image
+		startSize (int): Reference image size to start with
+		endSize (int): Reference image size to end with
+		callback (Callable[..., Any] | None, optional): callback function for progress logging. Defaults to None.
+
+	Returns:
+		RefData: Found reference data
+	"""
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
 	target:cv2.Mat = toGrayscale(original)
@@ -295,6 +335,17 @@ def getProfessionReferenceData(original:cv2.Mat, startSize:int, endSize:int, cal
 	return RefData(*sorted(data, key=lambda x: -x[0])[0])
 
 def getPromotionReferenceData(original:cv2.Mat, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
+	"""Creates promotion reference data for an image
+
+	Args:
+		original (cv2.Mat): Target image
+		startSize (int): Reference image size to start with
+		endSize (int): Reference image size to end with
+		callback (Callable[..., Any] | None, optional): callback function for progress logging. Defaults to None.
+
+	Returns:
+		RefData: Found reference data
+	"""
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
 	target:cv2.Mat = toGrayscale(cv2.threshold(original, 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
@@ -318,6 +369,17 @@ def getPromotionReferenceData(original:cv2.Mat, startSize:int, endSize:int, call
 	return RefData(*sorted(data, key=lambda x: -x[0])[0])
 
 def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[str], chunkSize:int) -> list[tuple[str,float]]:
+	"""Reads the text in given reagion with tesseract by creating smaller chunks from the original image and compares found results to a list of valid options
+
+	Args:
+		original (cv2.Mat): Target image
+		region (CropBox): Region to read from
+		options (list[str]): Valid options
+		chunkSizes (int): Chunk sizes for cropping..
+
+	Returns:
+		tuple[str,float]: The found text (text, confidence);
+	"""
 	all:list[tuple[str,float]] = []
 	for cropped in region.cropSplit(original, chunkSize):
 		mask:cv2.Mat = toGrayscale(cv2.threshold(cropped, 254, 255, cv2.THRESH_BINARY)[1]) # type: ignore / create mask from cropped image
@@ -333,7 +395,18 @@ def conjectTextInRegionChunked(original:cv2.Mat, region:CropBox, options:list[st
 			simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 			all.append((matches1[0], simScore))
 	return all
-def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizees:list[int]=[150, 300]) -> tuple[str,float]|None:
+def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chunkSizes:list[int]=[150, 300]) -> tuple[str,float]|None:
+	"""Reads the text in given reagion with tesseract and compares found results to a list of valid options
+
+	Args:
+		original (cv2.Mat): Target image
+		region (CropBox): Region to read from
+		options (list[str]): Valid options
+		chunkSizes (list[int], optional): List of chunksizes for fallback function. Defaults to [150, 300].
+
+	Returns:
+		tuple[str,float]|None: The found text (text, confidence); null if the confidence was not above threshold
+	"""
 	cropped:cv2.Mat = region.crop(original)
 	croppedArea = cropped.shape[0]*cropped.shape[1]
 	gray:cv2.Mat = toGrayscale(cropped)
@@ -352,13 +425,21 @@ def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chu
 	if len(matches1) > 0:
 		simScore:float = difflib.SequenceMatcher(None, "".join([f.capitalize() for f in filteredData]), matches1[0]).ratio()
 		return (matches1[0], simScore)
-	for cs in chunkSizees:
+	for cs in chunkSizes:
 		res:list[tuple[str, float]] = conjectTextInRegionChunked(original, region, options, cs)
 		if len(res) > 0:
 			return res[0]
 	return None
 
 def load(opId:str) -> Operator:
+	"""Loads the Operator object from file
+
+	Args:
+		opId (str): Operator id
+
+	Returns:
+		Operator: Deserialized Operator object
+	"""
 	op:Operator = pickle.load(open(f"./userdata/saves/{opId}.spec", "rb"))
 	op.recreateImg()
 	return op

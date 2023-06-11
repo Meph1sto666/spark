@@ -1,11 +1,13 @@
-import sys # type: ignore
-from lib.gui.main_window import * # type: ignore
- # type: ignore
-# img:cv2.Mat = cv2.imread("./testdata/0.png") # type: ignore
-app = QtWidgets.QApplication(sys.argv) # type: ignore
-# app.setStyleSheet(open("./data/styles/dark_theme.css").read()) # type: ignore
-window = MainWindow() # type: ignore
-window.setMinimumHeight(500) # type: ignore
-window.setMinimumWidth(888) # type: ignore
-window.show() # type: ignore
-app.exec() # type: ignore
+import eel
+import cv2
+from lib.types.operator import *
+
+eel.init("./src/") # type: ignore
+
+@eel.expose # type: ignore
+def loadImg() -> cv2.Mat:
+	i:cv2.Mat = cv2.imread("./userdata/targets/Screenshot_2023.06.02_18.23.53.122.png", cv2.IMREAD_UNCHANGED)
+	# Image.fromarray(i).show()
+	return i
+
+eel.start("index.html", mode="firefox") # type: ignore

@@ -45,7 +45,7 @@ class Module:
 			refGray:cv2.Mat = toGrayscale(refImg)
 			refThresh:cv2.Mat = cv2.threshold(refGray, 130, 255, cv2.THRESH_BINARY)[1] # type: ignore
 			refMasked:cv2.Mat = cv2.bitwise_and(refThresh, refThresh, mask=refImg[:,:,3])
-			for s in range(self.typeCropBox.w/2, self.typeCropBox.w):
+			for s in range(int(self.typeCropBox.w/2), self.typeCropBox.w):
 				if len(data) > 0 and streak < 0: break
 				refResized:cv2.Mat = cv2.resize(refMasked, (s,s))
 				res:cv2.Mat = cv2.matchTemplate(imgThresh, refResized, cv2.TM_CCOEFF_NORMED)

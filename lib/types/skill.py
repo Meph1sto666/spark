@@ -3,15 +3,36 @@ from lib.types.errors import *
 from lib.types.cropbox import *
 import numpy as np
 import cv2
-from PIL import Image
+# from PIL import Image
 
 class Skill:
+	"""Skill class (does not have an index for the skill)
+
+	Atributes:
+		skillCropBox (CropBox): Skill position
+		masteryCropBox (CropBox|None): If the skill has a mastery level 1, 2, 3 not null
+		mastery (int): The skill's mastery level
+	"""
 	def __init__(self, img:cv2.Mat, box:CropBox) -> None:
+		"""Constructor of Skill
+
+		Args:
+			img (cv2.Mat): Target image
+			box (CropBox): position of the skill within image
+		"""
 		self.skillCropBox:CropBox = box
 		self.masteryCropBox:CropBox|None = None
 		self.mastery:int = self.conjectSkillMasteryLevel(img)
 
 	def conjectSkillMasteryLevel(self, img:cv2.Mat) -> int:
+		"""Conjecting operator skill masteries with template matching
+
+		Args:
+			img (cv2.Mat): Target image
+
+		Returns:
+			int: Mastery level of the skill
+		"""
 		cropped:cv2.Mat = self.skillCropBox.crop(img)
 		imgGray:cv2.Mat = toGrayscale(cropped)
 		imgThresh:cv2.Mat = cv2.threshold(imgGray, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
@@ -53,6 +74,17 @@ class Skills:
 			# self.masteries = [Skill(img, self.getMasteriesPos(promAnchor,img,s)) for s in range(amount)]
 
 	def conjectSkillRank(self, img:cv2.Mat) -> int:
+		"""Conjecting operator skill level with template matching
+
+		Args:
+			img (cv2.Mat): Target image
+
+		Raises:
+			SkillRankConjectionFailed: When the skill rank could not be recognised
+
+		Returns:
+			int: Skill rank
+		"""
 		cropped:cv2.Mat = self.sb.crop(img)
 		imgGray:cv2.Mat = toGrayscale(cropped)
 		# Image.fromarray(imgGray).save(f"./preprocessed/preprocess_skill_rank.png","png")
@@ -78,9 +110,23 @@ class Skills:
 		raise SkillRankConjectionFailed()
 
 	def isMasteryable(self) -> bool:
+		"""Determins if the operators skills are masteryable (true if operator rarity > 3)
+
+		Returns:
+			bool: True if Op can have masteries
+		"""
 		return self.rank > 6
 
 	def getRankPos(self, anchor:RefData, img:cv2.Mat) -> CropBox:
+		"""Returns the position of the skill rank
+
+		Args:
+			anchor (RefData): Promotion anchor
+			img (cv2.Mat): The target image
+
+		Returns:
+			CropBox: Position of the rank
+		"""
 		return CropBox(
 			x=int(anchor.x*1.35),
 			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.74),
@@ -90,6 +136,16 @@ class Skills:
 		)
 
 	def getMasteriesPos(self, anchor:RefData, img:cv2.Mat, i:int) -> CropBox:
+		"""Returns the position of the mastery given by it's number 0 - 2
+
+		Args:
+			anchor (RefData): Promotion anchor
+			img (cv2.Mat): The target image
+			i (int): index of the mastery
+
+		Returns:
+			CropBox: Position of the value
+		"""
 		return CropBox(
 			x=int(anchor.x+anchor.size*i*.925),
 			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.625),

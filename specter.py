@@ -19,7 +19,7 @@ for f in sorted(os.listdir("./userdata/targets/")[0:]):
 		o = Operator(f"./userdata/targets/{f}", rfGen.profRefData, rfGen.promRefData)
 		allDeltas.append((dt.now()-t0).total_seconds())
 
-		timeDat:dict[str, float] = o.tTracker.diff()
+		timeDat:dict[str|None, float] = o.tTracker.diff()
 		inf:str = " ".join([
 			o.IMAGE_PATH.ljust(40),
 			f"{timeToColorPrec(timeDat['rarity'])}[RTY {o.rarity}]",
