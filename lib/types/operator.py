@@ -1,4 +1,6 @@
-from typing import * # type: ignore
+from typing import *
+
+import eel # type: ignore
 from lib.types.errors import *
 from lib.types.misc import * 
 from lib.types.skill import * 
@@ -12,7 +14,7 @@ import difflib
 import gzip
 import pickle
 from datetime import datetime as dt
-# from PIL import Image
+from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
 tsr = pytesseract.pytesseract.tesseract_cmd = "./dep/Tesseract-OCR/tesseract.exe"
@@ -122,7 +124,7 @@ class Operator:
 			area:int = stats[label,cv2.CC_STAT_AREA]
 			if area < croppedArea*.01 or area > croppedArea*.05: labels[labels==label] = 0
 		threshed:cv2.Mat = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
-		# Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
+		Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
 		stars:list[tuple[int,...]] = []
 		for cnt in cv2.findContours(threshed, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
 			if 150 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
@@ -185,7 +187,7 @@ class Operator:
 		return CropBox(
 			x=int(self.professionAnchor.size*.2),
 			# y=int(self.professionAnchor.size*5.5+(self.original.shape[0]-self.original.shape[1]/(16/9))/2),
-			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/4)*.8),
+			y=int((self.professionAnchor.y+max(0,(self.original.shape[0]-self.original.shape[1]/(16/9))/4))*.8),
 			w=int(self.professionAnchor.size*5), # 5.8 <- 7
 			h=int(self.professionAnchor.size*1.2),
 			tolerance=10
@@ -193,7 +195,7 @@ class Operator:
 	def getRarityPosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.x*1),
-			y=int((self.professionAnchor.y+(self.original.shape[0]-self.original.shape[1]/(16/9))/4)*.73),
+			y=int((self.professionAnchor.y+max(0,(self.original.shape[0]-self.original.shape[1]/(16/9))/4))*.73), # fails on >16:9
 			w=int(self.professionAnchor.size*1.7),
 			h=int(self.professionAnchor.size*.28),
 			tolerance=5
@@ -300,11 +302,12 @@ class Operator:
 			}
 		return data
 
-def getProfessionReferenceData(original:cv2.Mat, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
+def getProfessionReferenceData(originalPath:str, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
+	print(callback)
 	"""Creates profession reference data for an image
 
 	Args:
-		original (cv2.Mat): Target image
+		originalPath (str): Target image
 		startSize (int): Reference image size to start with
 		endSize (int): Reference image size to end with
 		callback (Callable[..., Any] | None, optional): callback function for progress logging. Defaults to None.
@@ -314,7 +317,7 @@ def getProfessionReferenceData(original:cv2.Mat, startSize:int, endSize:int, cal
 	"""
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
-	target:cv2.Mat = toGrayscale(original)
+	target:cv2.Mat = toGrayscale(cv2.imread(originalPath, cv2.IMREAD_UNCHANGED))
 	refList:list[str] = os.listdir("./ref/classes/alpha/")
 	inc:int = 0
 	for size in range(startSize, endSize):
@@ -334,11 +337,11 @@ def getProfessionReferenceData(original:cv2.Mat, startSize:int, endSize:int, cal
 			inc+=1
 	return RefData(*sorted(data, key=lambda x: -x[0])[0])
 
-def getPromotionReferenceData(original:cv2.Mat, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
+def getPromotionReferenceData(originalPath:str, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
 	"""Creates promotion reference data for an image
 
 	Args:
-		original (cv2.Mat): Target image
+		originalPath (str): Path to target image
 		startSize (int): Reference image size to start with
 		endSize (int): Reference image size to end with
 		callback (Callable[..., Any] | None, optional): callback function for progress logging. Defaults to None.
@@ -348,7 +351,7 @@ def getPromotionReferenceData(original:cv2.Mat, startSize:int, endSize:int, call
 	"""
 	data:list[tuple[float,int,int,int]] = [] # (conf, size, x, y)
 	streak = 0;
-	target:cv2.Mat = toGrayscale(cv2.threshold(original, 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
+	target:cv2.Mat = toGrayscale(cv2.threshold(cv2.imread(originalPath, cv2.IMREAD_UNCHANGED), 225, 255, cv2.THRESH_BINARY)[1]) # type: ignore
 	refList:list[str] = os.listdir("./ref/elite/")
 	inc:int = 0
 	for size in range(startSize, endSize):
