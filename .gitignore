@@ -4,7 +4,8 @@ __pycache__
 /testdata
 /testdata_misc
 /testdata_old
-/userdata
+/userdata/*
+!/userdata/settings.json
 /preprocessed
 /final
 /.vscode

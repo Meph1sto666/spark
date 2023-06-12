@@ -3,7 +3,7 @@ from lib.types.errors import *
 from lib.types.cropbox import *
 import numpy as np
 import cv2
-from PIL import Image
+# from PIL import Image
 
 class Skill:
 	"""Skill class (does not have an index for the skill)
@@ -87,7 +87,7 @@ class Skills:
 		"""
 		cropped:cv2.Mat = self.sb.crop(img)
 		imgGray:cv2.Mat = toGrayscale(cropped)
-		Image.fromarray(imgGray).save(f"./preprocessed/preprocess_skill_rank.png","png")
+		# Image.fromarray(imgGray).save(f"./preprocessed/preprocess_skill_rank.png","png")
 		data:list[tuple[float,int,CropBox]] = []
 		streak = 0
 		for m in os.listdir("./ref/rank/"):
