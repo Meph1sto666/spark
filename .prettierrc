@@ -1,0 +1,26 @@
+{
+  "overrides": [
+    {
+      "files": "*.svelte",
+      "options": {
+        "parser": "svelte",
+        "tabWidth": 4
+      }
+    },
+    {
+      "files": "*.html",
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ],
+  "printWidth": 150,
+  "quoteProps": "consistent",
+  "singleQuote": true,
+  "svelteIndentScriptAndStyle": true,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "useTabs": false,
+  "plugins": ["prettier-plugin-svelte", "prettier-plugin-tailwindcss"],
+  "pluginSearchDirs": false
+}

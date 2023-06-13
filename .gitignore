@@ -10,3 +10,14 @@ __pycache__
 /final
 /.vscode
 /sphinx
+
+# Ui
+.DS_Store
+node_modules
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+/build
+/.svelte-kit
+/package
+/.env.*
+/coverage

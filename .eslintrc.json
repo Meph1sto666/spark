@@ -1,0 +1,135 @@
+{
+  "env": {
+    "browser": true,
+    "es2017": true,
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:svelte/recommended",
+    "airbnb-base",
+    "airbnb-typescript/base",
+    "plugin:prettier/recommended"
+  ],
+  "overrides": [
+    {
+      "files": ["*.svelte"],
+      "parser": "svelte-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+      }
+    },
+    {
+      "files": ["*.ts", "*.svelte"],
+      "rules": {
+        "@typescript-eslint/consistent-type-imports": ["error"],
+        "@typescript-eslint/no-unnecessary-condition": ["error"],
+        "no-undef": "off"
+      }
+    },
+    {
+      "env": {
+        "browser": false,
+        "es2017": true,
+        "node": true
+      },
+      "files": ["src/routes/**/*.server.ts", "src/lib/server/**/*.ts"]
+    }
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "extraFileExtensions": [".svelte"],
+    "project": ["./tsconfig.json"],
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint", "jsdoc", "import", "import-no-duplicates-prefix-resolved-path", "prettier"],
+  "root": true,
+  "rules": {
+    "@typescript-eslint/no-throw-literal": "off",
+    "@typescript-eslint/no-unused-vars": ["warn"],
+    "import-no-duplicates-prefix-resolved-path/no-duplicates": [
+      "error",
+      {
+        "prefixResolvedPathWithImportName": true
+      }
+    ],
+    "import/extensions": "off",
+    "import/first": ["error"],
+    "import/newline-after-import": [
+      "error",
+      {
+        "count": 1
+      }
+    ],
+    "import/no-absolute-path": ["error"],
+    "import/no-duplicates": "off",
+    "import/no-extraneous-dependencies": "off",
+    "import/no-mutable-exports": "off",
+    "import/no-relative-packages": ["error"],
+    "import/no-unresolved": [
+      "error",
+      {
+        "ignore": ["\\$app.*$", "\\$service-worker.*$", "\\$env.*$"]
+      }
+    ],
+    "import/no-useless-path-segments": [
+      "error",
+      {
+        "noUselessIndex": true
+      }
+    ],
+    "import/order": [
+      "error",
+      {
+        "alphabetize": {
+          "caseInsensitive": false,
+          "order": "asc"
+        },
+        "groups": ["external", "builtin", "internal", "sibling", "parent", "index", "object", "type"],
+        "newlines-between": "always",
+        "pathGroups": [
+          {
+            "group": "internal",
+            "pattern": "$(lib|components|stores|utils|api)/*"
+          },
+          {
+            "group": "type",
+            "pattern": "$types/*"
+          }
+        ]
+      }
+    ],
+    "import/prefer-default-export": "off",
+    "jsdoc/no-types": ["error"],
+    "keyword-spacing": [
+      "error",
+      {
+        "before": true
+      }
+    ],
+    "no-constant-condition": ["error"],
+    "no-invalid-regexp": ["error"],
+    "no-multi-assign": ["error"],
+    "no-param-reassign": "off",
+    "one-var": ["error", "never"],
+    "prefer-arrow-callback": ["off"],
+    "prettier/prettier": ["warn"]
+  },
+  "settings": {
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts", ".tsx", ".cts", ".mts"],
+      "espree": [".js", "jsx", ".cjs", ".mjs"]
+    },
+    "import/resolver": {
+      "node": true,
+      "typescript": {
+        "alwaysTryTypes": true,
+        "project": ["./tsconfig.json", "./.svelte-kit/tsconfig.json"]
+      }
+    }
+  }
+}
