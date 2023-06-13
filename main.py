@@ -1,5 +1,4 @@
 import eel
-import cv2
 from lib.types.operator import *
 from lib.expose import exposeAll
 

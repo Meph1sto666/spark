@@ -4,10 +4,10 @@ from lib.types.operator import *
 from lib.settings import * 
 
 def prfrdCallbackConvert(originalPath:str, startSize:int, endSize:int) -> None:
-	profrefdta:RefData = getProfessionReferenceData(originalPath,startSize,endSize, eel.callback)
+	profrefdta:RefData = getProfessionReferenceData(originalPath,startSize,endSize, eel.callback) # type: ignore
 	pickle.dump(profrefdta, open("./userdata/refs/prf.srd", "wb"))
 def prmrdCallbackConvert(originalPath:str, startSize:int, endSize:int) -> None:
-	promrefdta:RefData = getPromotionReferenceData(originalPath,startSize,endSize, eel.callback)
+	promrefdta:RefData = getPromotionReferenceData(originalPath,startSize,endSize, eel.callback) # type: ignore
 	pickle.dump(promrefdta, open("./userdata/refs/prm.srd", "wb"))
 
 

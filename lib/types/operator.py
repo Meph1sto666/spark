@@ -1,4 +1,4 @@
-from typing import *
+from typing import * # type: ignore
 
 import eel # type: ignore
 from lib.types.errors import *
@@ -14,7 +14,7 @@ import difflib
 import gzip
 import pickle
 from datetime import datetime as dt
-from PIL import Image
+# from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
 tsr = pytesseract.pytesseract.tesseract_cmd = "./dep/Tesseract-OCR/tesseract.exe"
@@ -124,7 +124,7 @@ class Operator:
 			area:int = stats[label,cv2.CC_STAT_AREA]
 			if area < croppedArea*.01 or area > croppedArea*.05: labels[labels==label] = 0
 		threshed:cv2.Mat = cv2.bitwise_and(gray, gray, mask=(labels>0).astype(np.uint8))
-		Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
+		# Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
 		stars:list[tuple[int,...]] = []
 		for cnt in cv2.findContours(threshed, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
 			if 150 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken

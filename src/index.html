@@ -7,12 +7,16 @@
     <script src="eel.js"></script>
     <script>
         function callback(v) {
+            document.getElementById("bar").style.setProperty("width", `${v/100*700}px`)
+            document.getElementById("bar").innerHTML = `${v}%`
             console.log(v)
         }
         eel.expose(callback)
     </script>
 </head>
-<body onload="eel.prfrdCallbackConvert('./userdata/targets/Screenshot_2023.06.02_18.23.53.122.png',108,150)">
-    
+<body onload="eel.prfrdCallbackConvert('./userdata/targets/0.png',108,150);eel.prmrdCallbackConvert('./userdata/targets/0.png',108,150)">
+    <div style="border: solid red 1px; width: 700px; height: 20px">
+        <div style="background-color: lime; width: 700px; height: 20px" id="bar"></div>
+    </div>
 </body>
 </html>

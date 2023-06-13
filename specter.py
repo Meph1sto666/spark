@@ -8,15 +8,16 @@ import pickle
 from refdatmkr import *
 from PIL import Image
 
-rfGen:RefDataCreator = pickle.load(open("./userdata/refs/0.srdta", "rb"))
-print(rfGen.profRefData.toTuple(), rfGen.promRefData.toTuple())
+prfrefdta:RefData = pickle.load(open("./userdata/refs/prf.srd", "rb"))
+prmrefdta:RefData = pickle.load(open("./userdata/refs/prm.srd", "rb"))
+print(prfrefdta.toTuple(), prmrefdta.toTuple())
 allDeltas:list[float] = []
 dmp = []
 success:list[Operator] = []
 for f in sorted(os.listdir("./userdata/targets/")[0:]):
 	try:
 		t0:dt = dt.now()
-		o = Operator(f"./userdata/targets/{f}", rfGen.profRefData, rfGen.promRefData)
+		o = Operator(f"./userdata/targets/{f}", prfrefdta, prmrefdta)
 		allDeltas.append((dt.now()-t0).total_seconds())
 
 		timeDat:dict[str|None, float] = o.tTracker.diff()
