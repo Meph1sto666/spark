@@ -1,0 +1,22 @@
+.DS_Store
+node_modules
+/build
+/.svelte-kit
+/package
+.env
+.env.*
+*.cjs
+svelte.config.js
+
+# Ignore non GUI files
+/data
+/dep
+/lib
+/ref
+/coverage
+/.github
+
+# Ignore files for PNPM, NPM and YARN
+pnpm-lock.yaml
+package-lock.json
+yarn.lock

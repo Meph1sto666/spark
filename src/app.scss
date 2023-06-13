@@ -1,0 +1,16 @@
+// Add the global style here
+// Custom font
+@font-face {
+  /* Reference name */
+  font-family: 'Quicksand';
+  src: url('/fonts/Quicksand-VariableFont_wght.ttf');
+}
+
+:root {
+  --theme-font-family-base: 'Quicksand', sans-serif;
+  --theme-font-family-heading: 'Quicksand', sans-serif;
+}
+
+body {
+  @apply bg-surface-50-900-token;
+}
