@@ -1,5 +1,6 @@
 {
-	"assa_emulator": null,
+	"language": "en_us",
+	"assa_emulator": "BlueStacks App Player",
 	"assa_auto_fullscreen": false,
 
 	"oprec_module": true,

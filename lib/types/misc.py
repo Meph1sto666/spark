@@ -1,11 +1,10 @@
 import os
 import json
 from datetime import datetime as dt
-
 import colorama
 from lib.types.errors import *
 import cv2
-from lib.types.cropbox import *
+from lib.types.cropbox import *		
 
 class RefData:
 	"""Reference data class for orientation of OCR

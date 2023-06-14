@@ -12,9 +12,14 @@
             console.log(v)
         }
         eel.expose(callback)
+        function excHandler(e) {
+            console.log(e)
+        }
+        eel.expose(excHandler)
     </script>
 </head>
-<body onload="eel.prfrdCallbackConvert('./userdata/targets/0.png',108,150);eel.prmrdCallbackConvert('./userdata/targets/0.png',108,150)">
+<!-- <body onload="eel.prfrdCallbackConvert('./userdata/targets/0.png',108,150);eel.prmrdCallbackConvert('./userdata/targets/0.png',108,150)"> -->
+<body onload="try {eel.getPlayer('Emu', 'blue stacks')} catch (e) {console.log(e)}">
     <div style="border: solid red 1px; width: 700px; height: 20px">
         <div style="background-color: lime; width: 700px; height: 20px" id="bar"></div>
     </div>

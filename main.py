@@ -1,7 +1,7 @@
 import argparse
 import eel
 from lib.types.operator import *
-from PIL import Image
+# from PIL import Image
 from lib.expose import exposeAll
 
 if __name__ == "__main__":

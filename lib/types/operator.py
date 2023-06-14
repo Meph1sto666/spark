@@ -1,6 +1,5 @@
 from typing import * # type: ignore
 
-import eel # type: ignore
 from lib.types.errors import *
 from lib.types.misc import * 
 from lib.types.skill import * 
@@ -411,7 +410,7 @@ def conjectTextInRegion(original:cv2.Mat, region:CropBox, options:list[str], chu
 		tuple[str,float]|None: The found text (text, confidence); null if the confidence was not above threshold
 	"""
 	cropped:cv2.Mat = region.crop(original)
-	croppedArea = cropped.shape[0]*cropped.shape[1]
+	croppedArea:int = cropped.shape[0]*cropped.shape[1]
 	gray:cv2.Mat = toGrayscale(cropped)
 	thresh:cv2.Mat = cv2.threshold(gray, 254, 255, cv2.THRESH_BINARY)[1] # type: ignore
 	labels, stats = cv2.connectedComponentsWithStats(thresh)[1:3]
