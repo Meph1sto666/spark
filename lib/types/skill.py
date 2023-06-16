@@ -129,7 +129,7 @@ class Skills:
 		"""
 		return CropBox(
 			x=int(anchor.x*1.38),
-			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.75),
+			y=int((anchor.y-(img.shape[0]-img.shape[1]/(16/9))/4)*1.73),
 			w=int(anchor.size*.4),
 			h=int(anchor.size*.28),
 			tolerance=0 # NOTE: maybe 5

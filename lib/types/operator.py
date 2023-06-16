@@ -71,7 +71,8 @@ class Operator:
 		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
 		self.favouriteCropBox:CropBox = self.getFavouritePosition()
 		self.tTracker.add(Delta(dt.now(), "cropBoxes"))
-		# Image.fromarray(self.rarityCropBox.crop(self.original)).show()
+		# print(self.nameCropBox, self.imgInf, self.professionAnchor.x)
+		# Image.fromarray(self.levelCropBox.crop(self.original)).show()
 
 
 		# ===help data for name recognition===
@@ -126,7 +127,7 @@ class Operator:
 		# Image.fromarray(threshed).save(f"./preprocessed/{os.path.split(os.path.splitext(self.IMAGE_PATH)[0])[-1]}.png") # type: ignore
 		stars:list[tuple[int,...]] = []
 		for cnt in cv2.findContours(threshed, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]: # type: ignore
-			if 150 < cv2.contourArea(cnt) < 400:  # type: ignore / mal gucken
+			if croppedArea*.01 < cv2.contourArea(cnt) < croppedArea*.1:  # type: ignore / mal gucken
 				if len(cnt) < 5: continue
 				(x,y), (MA,ma), angle = cv2.fitEllipse(cnt) # type: ignore
 				if MA / ma < .5: continue
@@ -134,6 +135,7 @@ class Operator:
 		for star in stars:
 			self.rarityStars.append((CropBox(*cv2.boundingRect(star)),x,y,angle)) # type: ignore
 		if 0 < len(stars) < 7:
+			# print(len(stars))
 			return len(stars)
 		raise OperatorRarityConjectionFailed(self.IMAGE_PATH)
 	def conjectOperatorLevel(self) -> int:
@@ -189,7 +191,7 @@ class Operator:
 			y=int((self.professionAnchor.y+max(0,(self.original.shape[0]-self.original.shape[1]/(16/9))/4))*.8),
 			w=int(self.professionAnchor.size*5), # 5.8 <- 7
 			h=int(self.professionAnchor.size*1.2),
-			tolerance=10
+			tolerance=min(10, int(self.professionAnchor.size*.2))
 		)
 	def getRarityPosition(self) -> CropBox:
 		return CropBox(
@@ -302,7 +304,6 @@ class Operator:
 		return data
 
 def getProfessionReferenceData(originalPath:str, startSize:int, endSize:int, callback:Callable[..., Any]|None=None) -> RefData:
-	print(callback)
 	"""Creates profession reference data for an image
 
 	Args:
@@ -321,7 +322,7 @@ def getProfessionReferenceData(originalPath:str, startSize:int, endSize:int, cal
 	inc:int = 0
 	for size in range(startSize, endSize):
 		if callback != None:
-			callback((inc/(endSize*len(refList)))*100)
+			callback((inc/((endSize-startSize)*len(refList)))*100)
 		for c in refList:
 			if len(data) > 0 and streak < 0: break
 			template:cv2.Mat = cv2.imread(f"./ref/classes/alpha/{c}")
@@ -355,7 +356,7 @@ def getPromotionReferenceData(originalPath:str, startSize:int, endSize:int, call
 	inc:int = 0
 	for size in range(startSize, endSize):
 		if callback != None:
-			callback((inc/(endSize*len(refList)))*100)
+			callback((inc/((endSize-startSize)*len(refList)))*100)
 		for e in refList:
 			if len(data) > 0 and streak < 0: break
 			refImg:cv2.Mat = cv2.imread(f"./ref/elite/{e}", cv2.IMREAD_UNCHANGED)

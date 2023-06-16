@@ -7,6 +7,8 @@ colorama.init(True) # type: ignore
 import pickle
 from refdatmkr import *
 from PIL import Image
+# from dotenv import load_dotenv
+# load_dotenv()
 
 prfrefdta:RefData = pickle.load(open("./userdata/refs/prf.srd", "rb"))
 prmrefdta:RefData = pickle.load(open("./userdata/refs/prm.srd", "rb"))

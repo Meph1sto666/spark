@@ -82,6 +82,9 @@ class CropBox:
 		return (xT, yT, self.w, self.h)
 		# return (self.x+pos[0],self.y+pos[1],self.w,self.h)
 
+	def __str__(self) -> str:
+		return f"<{type(self).__name__} x={self.x}, y={self.y}, w={self.w}, h={self.h}, tolerance={self.tolerance}>"
+
 class Circle:
 	"""Circle to crop a cv2.Mat image
 
