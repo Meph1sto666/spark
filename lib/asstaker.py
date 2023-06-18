@@ -44,7 +44,7 @@ if __name__ == "__main__":
 		time.sleep(.5)
 		capture(player, str(img))
 		scrollNext(player)
-		sim = compareLastCaptures()
+		sim:float = compareLastCaptures()
 		print(sim, sim < 20) # type: ignore
 		img+=1
 		time.sleep(1)

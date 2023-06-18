@@ -177,13 +177,22 @@ class Operator:
 		raise OperatorPotentialConjectionFailed(self.IMAGE_PATH)
 
 	def conjectFavouriteStatus(self) -> bool:
+		ref:cv2.Mat = cv2.imread("./ref/loved.png", cv2.IMREAD_UNCHANGED)
+		bgrRef:tuple[cv2.Mat,...] = cv2.split(ref) # type: ignore
+		yMRef:cv2.Mat = cv2.bitwise_and(bgrRef[1],bgrRef[2])
+		yMRef:cv2.Mat = cv2.bitwise_xor(yMRef, bgrRef[0])
+		yMRef = cv2.threshold(yMRef, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore
+		
 		cropped:cv2.Mat = self.favouriteCropBox.crop(self.original)
 		bgr:tuple[cv2.Mat,...] = cv2.split(cropped) # type: ignore
 		yellowMask:cv2.Mat = cv2.bitwise_and(bgr[1],bgr[2])
 		yellowMask:cv2.Mat = cv2.bitwise_xor(yellowMask, bgr[0])
-		yellowMask = cv2.threshold(yellowMask, 100, 255, cv2.THRESH_BINARY)[1] # type: ignore
-		return bool(np.sum(yellowMask==255) > 350) # type: ignore
+		yellowMask = cv2.threshold(yellowMask, 200, 255, cv2.THRESH_BINARY)[1] # type: ignore
 
+		# Image.fromarray(yellowMask).save(f"./preprocessed/fav_{self.name}.png")		
+		loc:tuple=np.where(cv2.matchTemplate(yellowMask, yMRef, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
+		return len(loc[0]) > 0
+		
 	def getNamePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.size*.2),
