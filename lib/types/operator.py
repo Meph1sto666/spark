@@ -13,6 +13,7 @@ import difflib
 import gzip
 import pickle
 from datetime import datetime as dt
+from lib.settings import *
 # from PIL import Image
 # import pyautogui
 import pytesseract # type: ignore
@@ -53,54 +54,46 @@ class Operator:
 			profRefData (RefData): _description_
 			promRefData (RefData): _description_
 		"""
+		self.tTracker:TimeTracker = TimeTracker(dt.now())
 		self.IMAGE_PATH:str = imagePath
-		self.original:cv2.Mat = cv2.imread(self.IMAGE_PATH, cv2.IMREAD_UNCHANGED)
+		self.original:cv2.Mat = cv2.imread(self.IMAGE_PATH, cv2.IMREAD_UNCHANGED); self.tTracker.add(Delta(dt.now(), "im_read"))
 		self.imgInf:tuple[np.dtype[np.generic], Tuple[int, ...]] = (self.original.dtype, self.original.shape)
 		self.professionAnchor:RefData = profRefData
 		self.promotionAnchor:RefData = promRefData
 		# ===crops / positions===
-		self.tTracker:TimeTracker = TimeTracker(dt.now())
 		self.prfCropBox:CropBox = CropBox(self.professionAnchor.x, self.professionAnchor.y, self.professionAnchor.size, self.professionAnchor.size, 5)
-		self.nameCropBox:CropBox = self.getNamePosition()
-		self.rarityCropBox:CropBox = self.getRarityPosition()
-		self.levelCropBox:CropBox = self.getLevelPosition()
+		self.nameCropBox:CropBox = self.getNamePosition(); self.tTracker.add(Delta(dt.now(), "cb_nme"))
+		self.rarityCropBox:CropBox = self.getRarityPosition(); self.tTracker.add(Delta(dt.now(), "cb_rty"))
+		self.levelCropBox:CropBox = self.getLevelPosition(); self.tTracker.add(Delta(dt.now(), "cb_lvl"))
 		self.promotionCropBox:CropBox = CropBox(self.promotionAnchor.x, self.promotionAnchor.y, self.promotionAnchor.size, self.promotionAnchor.size, 5)
-		# self.operatorCropBox:CropBox = self.getOperatorPosition()
-		self.potentialCropBox:CropBox = self.getPotentialPosition()
-		self.moduleTypeCropBox:CropBox = self.getModuleTypePosition()
-		self.moduleStageCropBox:CropBox = self.getModuleStagePosition()
-		self.favouriteCropBox:CropBox = self.getFavouritePosition()
-		self.tTracker.add(Delta(dt.now(), "cropBoxes"))
+		self.operatorCropBox:CropBox = self.getOperatorPosition(); self.tTracker.add(Delta(dt.now(), "cb_op"))
+		self.potentialCropBox:CropBox = self.getPotentialPosition(); self.tTracker.add(Delta(dt.now(), "cb_pot"))
+		self.moduleTypeCropBox:CropBox = self.getModuleTypePosition(); self.tTracker.add(Delta(dt.now(), "cb_mod_t"))
+		self.moduleStageCropBox:CropBox = self.getModuleStagePosition(); self.tTracker.add(Delta(dt.now(), "cb_mod_s"))
+		self.favouriteCropBox:CropBox = self.getFavouritePosition(); self.tTracker.add(Delta(dt.now(), "cropBoxes"))
 		# print(self.nameCropBox, self.imgInf, self.professionAnchor.x)
 		# Image.fromarray(self.levelCropBox.crop(self.original)).show()
 
 
 		# ===help data for name recognition===
-		self.profession:str = self.conjectOperatorProfession()
-		self.tTracker.add(Delta(dt.now(), "prof"))
+		self.profession:str = self.conjectOperatorProfession(); self.tTracker.add(Delta(dt.now(), "prof"))
 		self.rarityStars:list[tuple[CropBox,int,int,float]] = []
-		self.rarity:int = self.conjectOperatorRarity()
-		self.tTracker.add(Delta(dt.now(), "rarity"))
+		self.rarity:int = self.conjectOperatorRarity(); self.tTracker.add(Delta(dt.now(), "rarity"))
 		
 		# ===actual data...===
-		self.name:str = self.conjectOperatorName(filterNamesByRarityAndProfession(self.rarity, str(self.profession)))
-		self.tTracker.add(Delta(dt.now(), "name"))
-		self.id:str = getIdByName(str(self.name))
-		self.tTracker.add(Delta(dt.now(), "id"))
-		self.level:int = self.conjectOperatorLevel()
-		self.tTracker.add(Delta(dt.now(), "level"))
-		self.promotion:int = self.conjectOperatorPromotionLevel()
-		self.tTracker.add(Delta(dt.now(), "prom"))
-		self.potential:int = self.conjectOperatorPotential()
-		self.tTracker.add(Delta(dt.now(), "pot"))
-		self.skills:Skills = Skills(self.original, self.promotionAnchor, self.rarity)
-		self.tTracker.add(Delta(dt.now(), "skills"))
-		self.module:Module = Module(self.original, self.id, self.promotion, self.moduleStageCropBox, self.moduleTypeCropBox)
+		self.name:str = self.conjectOperatorName(filterNamesByRarityAndProfession(self.rarity, str(self.profession))); self.tTracker.add(Delta(dt.now(), "name"))
+		self.id:str = getIdByName(str(self.name)); self.tTracker.add(Delta(dt.now(), "id"))
+		self.level:int = self.conjectOperatorLevel(); self.tTracker.add(Delta(dt.now(), "level"))
+		self.promotion:int = self.conjectOperatorPromotionLevel(); self.tTracker.add(Delta(dt.now(), "prom"))
+		self.potential:int = self.conjectOperatorPotential(); self.tTracker.add(Delta(dt.now(), "pot"))
+		self.skills:Skills = Skills(self.original, self.promotionAnchor, self.rarity); self.tTracker.add(Delta(dt.now(), "skills"))
+
+		self.module:Module|None = Module(self.original, self.id, self.promotion, self.moduleStageCropBox, self.moduleTypeCropBox) if getSettingBool("oprec_module") else None
 		self.tTracker.add(Delta(dt.now(), "module"))
-		self.loved:bool = self.conjectFavouriteStatus()
+		self.loved:bool = self.conjectFavouriteStatus() if getSettingBool("oprec_favourite") else False
 		self.tTracker.add(Delta(dt.now(), "fav"))
-		self.avatar:str|None = None
-		# print(self.tTracker.diff())
+		self.skin:str|None = self.conjectOperatorSkin() if getSettingBool("oprec_skin") else None
+		self.tTracker.add(Delta(dt.now(), "skn"))
 
 	def conjectOperatorProfession(self) -> str:
 		cropped:cv2.Mat = self.prfCropBox.crop(self.original)
@@ -192,7 +185,37 @@ class Operator:
 		# Image.fromarray(yellowMask).save(f"./preprocessed/fav_{self.name}.png")		
 		loc:tuple=np.where(cv2.matchTemplate(yellowMask, yMRef, cv2.TM_CCOEFF_NORMED)>=0.65) # type: ignore
 		return len(loc[0]) > 0
-		
+
+	def conjectOperatorSkin(self) -> str:
+		data = []
+		cropped:cv2.Mat = self.operatorCropBox.crop(self.original)
+		croppedGray:cv2.Mat = toGrayscale(cropped)
+		croppedGray = cv2.adaptiveThreshold(croppedGray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 2) # type: ignore
+		streak = 0
+		# Image.fromarray(croppedGray).save(f"./preprocessed/{self.id}_ppr.png")
+		for a in filterAvatarsById(self.id):
+			ref:cv2.Mat = cv2.imread(f"./ref/avatars/{a}", cv2.IMREAD_UNCHANGED)
+			refGray:cv2.Mat = toGrayscale(cv2.bitwise_and(ref, ref, mask=ref[:,:,3]))
+			refGray = cv2.adaptiveThreshold(refGray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 2) # type: ignore
+			skinName:str = os.path.splitext(a)[0]
+			
+			r = range(int(self.professionAnchor.size*.4),int(self.professionAnchor.size*2))
+			inc:int = 0
+			print(r)
+			for size in r:
+				if len(data) > 0 and streak < 0: break
+				refGrayResized:cv2.Mat = cv2.resize(refGray, (size,size))
+				res:cv2.Mat = cv2.matchTemplate(croppedGray, refGrayResized, cv2.TM_CCOEFF_NORMED)
+				loc:tuple[cv2.Mat, ...] = np.where(res >= .3) # type: ignore
+				if len(loc[0]) > 0:
+					data.append((float(np.max(res)), skinName, loc[1][0], loc[0][0], size)) # type: ignore
+					streak = 7
+				else: streak-=1
+				inc+=1
+			# Image.fromarray(bgraToRgba(crpt)).save(f"./preprocessed/{self.id}_found_{a}.png") # type:ignore
+					
+		return str(sorted(data, key=lambda x: -x[0])[0][-1]) if len(data) > 0 else str("None")
+	
 	def getNamePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.professionAnchor.size*.2),
@@ -220,10 +243,11 @@ class Operator:
 
 	def getOperatorPosition(self) -> CropBox:
 		return CropBox(
-			x=int(self.professionAnchor.x+4*self.professionAnchor.size),
-			y=int(self.professionAnchor.y-6.2*self.professionAnchor.size),
-			w=int(self.professionAnchor.size*5),
-			h=int(self.professionAnchor.size*6.5)
+			x=int(self.professionAnchor.size*.2+self.professionAnchor.size*5),
+			y=int((0+(self.original.shape[0]-self.original.shape[1]/(16/9))/2)),
+			w=int((self.promotionAnchor.x-self.professionAnchor.x)/2),
+			h=int(self.original.shape[0]/2),#self.professionAnchor.size*6.5)
+			tolerance=-70
 		)
 	def getPotentialPosition(self) -> CropBox:
 		return CropBox(
@@ -232,15 +256,7 @@ class Operator:
 			w=int(self.promotionAnchor.size*1.1),
 			h=int(self.promotionAnchor.size*1.1),
 			tolerance=20
-		)	
-	# def getSkillsPosition(self) -> SkillBox:
-	# 	return SkillBox(
-	# 		x=int(self.promotionAnchor.x*1),
-	# 		y=int(self.promotionAnchor.y*1.52),
-	# 		w=int(self.promotionAnchor.size*3.81),
-	# 		h=int(self.promotionAnchor.size*.77),
-	# 		tolerance=10
-	# 	)
+		)
 	def getModuleTypePosition(self) -> CropBox:
 		return CropBox(
 			x=int(self.promotionAnchor.x*1.21),
@@ -281,8 +297,10 @@ class Operator:
 			if m==None: continue
 			if m.masteryCropBox==None: continue
 			drawBoundingBox(cpy, *m.masteryCropBox.add([m.skillCropBox.toTuple()]), text=f"M {m.mastery}")
-		if self.module.foundTypeCropBox != None:
-			drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
+		if self.module != None:
+			if self.module.foundTypeCropBox != None:
+				drawBoundingBox(cpy, *self.module.foundTypeCropBox.toTuple(), text=f"M{self.module.type} S{self.module.stage}")
+		drawBoundingBox(cpy, *self.favouriteCropBox.toTuple(), text=f"L {self.loved}")
 		return cpy
 
 	def save(self, folder:str) -> None:
@@ -303,9 +321,9 @@ class Operator:
 			"masteries": [m.mastery if m!=None else -1 for m in self.skills.masteries] if self.skills.isMasteryable() else [],
 			"module": None,
 			"loved": self.loved,
-			"skin": self.avatar
+			"skin": self.skin
 		}
-		if self.module.type != None:
+		if self.module != None and self.module.type != None:
 			data["module"] = {
 				"type": self.module.type.lower(),
 				"stage": self.module.stage

@@ -31,8 +31,9 @@ for f in sorted(os.listdir("./userdata/targets/")[0:]):
 			f"{timeToColorPrec(timeDat['prom'])}[PRM {o.promotion} {timeToColorPrec(timeDat['level'])}LVL {str(o.level).rjust(2)}]".ljust(10),
 			f"{timeToColorPrec(timeDat['pot'])}[POT {o.potential}]".ljust(7),
 			f"{timeToColorPrec(timeDat['skills'])}[RNK {(o.skills.rank)} MRY {str([m.mastery if m != None else -1 for m in o.skills.masteries]).ljust(9)}]",
-			f"{timeToColorPrec(timeDat['module'])}[{f'MOD {o.module.type} SGE {o.module.stage}'.ljust(15) if o.module.stage!=None else f'MOD None'.ljust(15)}]",
+			f"{timeToColorPrec(timeDat['module'])}[{f'MOD {o.module.type} SGE {o.module.stage}'.ljust(15) if o.module.stage!=None else f'MOD None'.ljust(15)}]" if o.module != None else "",
 			f"{timeToColorPrec(timeDat['fav'])}[FAV {str(o.loved).ljust(5)}]",
+			f"{timeToColorPrec(timeDat['skn'])}[SKN {str(o.skin).ljust(20)}]",
 			f"{timeToColor(allDeltas[-1])}TME: {allDeltas[-1]}"
 		])
 		print(inf)

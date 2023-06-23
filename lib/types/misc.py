@@ -89,18 +89,18 @@ def filterNamesByProfession(c:str) -> list[str]:
 	"""
 	ops:list[dict[str, str]] = dict(json.load(open("./ref/class2op.json"))).get(c, [])
 	return [o["name"] for o in ops]
-def filterAvatarsByProfession(c:str) -> list[str]:
-	"""Filters the avatars from /avatars/ by their operator class
+def filterAvatarsById(id:str) -> list[str]:
+	"""Filters the avatars from ./ref/avatars/ by the operators id
 
 	Args:
-		c (str): class/profession
+		id (str): id
 
 	Returns:
-		list[str]: All filenames of operators with profession
+		list[str]: All filenames of operators with id
 	"""
-	ops:list[dict[str, str]] = dict(json.load(open("./ref/class2op.json"))).get(c, [])
-	opIds:list[str] = [o.get("id", "None").split("_")[1] for o in ops]
-	return list(filter(lambda x: x.split("_")[1] in opIds, os.listdir("./ref/avatars/")))
+	# ops:list[dict[str, str]] = dict(json.load(open("./ref/class2op.json"))).get(c, [])
+	# opIds:list[str] = [o.get("id", "None").split("_")[1] for o in ops]
+	return list(filter(lambda x: id in x, os.listdir("./ref/avatars/")))
 def getIdByName(name:str) -> str:
 	"""Finds the operator id by its name
 

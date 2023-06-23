@@ -3,7 +3,7 @@
 	"assa_emulator": "BlueStacks App Player",
 	"assa_auto_fullscreen": false,
 
-	"oprec_module": true,
+	"oprec_module": false,
 	"oprec_skin": false,
 	"oprec_favourite": false
 }
